@@ -5,7 +5,7 @@
 ## ✨ 주요 기능
 
 - **5단계 음악 감상 프로세스**: 반응 → 기술 → 분석 → 해석 → 평가
-- **AI 기반 피드백**: Google Gemini API를 활용한 감상문 분석
+- **AI 기반 피드백**: OpenAI GPT API를 활용한 감상문 분석
 - **3D 시각화**: Three.js를 이용한 감상 능력 지표 시각화
 - **Google Forms 연동**: 감상 데이터 자동 수집
 - **실시간 분석**: 논리적/음악적 근거 제시 여부 진단
@@ -13,7 +13,7 @@
 ## 📋 사전 요구사항
 
 - Node.js 16.x 이상
-- Gemini API Key ([발급 방법](https://ai.google.dev/gemini-api/docs/api-key))
+- OpenAI API Key ([발급 방법](https://platform.openai.com/api-keys))
 - (선택) Google Forms Entry Code
 
 ## 🚀 설치 및 실행
@@ -29,8 +29,8 @@ npm install
 `.env` 파일을 프로젝트 루트에 생성하고 다음 내용을 입력하세요:
 
 ```env
-# Gemini API Key (필수)
-GEMINI_API_KEY=your_gemini_api_key_here
+# OpenAI API Key (필수)
+OPENAI_API_KEY=sk-proj-xxxxxxxxxxxxxxxx
 
 # Google Form URL (선택 - entry code 설정 후 입력)
 GOOGLE_FORM_URL=https://docs.google.com/forms/d/e/YOUR_FORM_ID/formResponse
@@ -140,14 +140,16 @@ MelodyMind/
 ## 🔐 보안 주의사항
 
 - `.env` 파일은 절대 Git에 커밋하지 마세요 (`.gitignore`에 포함됨)
-- Gemini API Key는 외부에 노출되지 않도록 주의하세요
+- OpenAI API Key는 외부에 노출되지 않도록 주의하세요
 - 프로덕션 환경에서는 HTTPS를 사용하세요
 
 ## 🐛 문제 해결
 
 ### API 키가 설정되지 않았다는 오류
-- `.env` 파일에 `GEMINI_API_KEY`가 올바르게 입력되었는지 확인
+- `.env` 파일에 `OPENAI_API_KEY`가 올바르게 입력되었는지 확인
+- API 키 형식: `sk-proj-` 또는 `sk-`로 시작
 - 서버를 재시작하세요 (`Ctrl+C` 후 `npm start`)
+- 상태 확인: `http://localhost:3000/api/health`
 
 ### CORS 오류
 - 서버를 통해 접속하세요 (파일을 직접 열지 마세요)

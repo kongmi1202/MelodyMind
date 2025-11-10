@@ -12,39 +12,31 @@ app.use(cors());
 app.use(express.json());
 app.use(express.static('.')); // 정적 파일 서빙 (index.html 등)
 
-// Gemini API 프록시 엔드포인트
+// OpenAI GPT API 프록시 엔드포인트
 app.post('/api/analyze', async (req, res) => {
     try {
         const { systemInstruction, userPrompt, jsonOutput } = req.body;
         
-        if (!process.env.GEMINI_API_KEY) {
-            return res.status(500).json({ error: 'GEMINI_API_KEY가 .env 파일에 설정되지 않았습니다.' });
+        // VITE_OPENAI_API_KEY 또는 OPENAI_API_KEY 둘 다 지원
+        const apiKey = process.env.VITE_OPENAI_API_KEY || process.env.OPENAI_API_KEY;
+        
+        if (!apiKey) {
+            return res.status(500).json({ error: 'OPENAI_API_KEY가 .env 파일에 설정되지 않았습니다.' });
         }
 
-        const GEMINI_API_URL = `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash-exp:generateContent?key=${process.env.GEMINI_API_KEY}`;
+        const OPENAI_API_URL = 'https://api.openai.com/v1/chat/completions';
+
+        const messages = [
+            { role: 'system', content: systemInstruction },
+            { role: 'user', content: userPrompt }
+        ];
 
         const payload = {
-            contents: [{ parts: [{ text: userPrompt }] }],
-            systemInstruction: { parts: [{ text: systemInstruction }] },
+            model: 'gpt-4o', // 또는 gpt-4, gpt-3.5-turbo
+            messages: messages,
+            temperature: 0.7,
             ...(jsonOutput && {
-                generationConfig: {
-                    responseMimeType: "application/json",
-                    responseSchema: {
-                        type: "OBJECT",
-                        properties: {
-                            senseScore: { type: "NUMBER" },
-                            analysisScore: { type: "NUMBER" },
-                            aestheticScore: { type: "NUMBER" },
-                            goodPoints: { type: "STRING" },
-                            badPoints: { type: "STRING" },
-                            structuredQuestion: { type: "STRING" },
-                            finalAppreciation: { type: "STRING" },
-                            performanceStrategy: { type: "STRING" },
-                            appreciationStrategy: { type: "STRING" },
-                            compositionStrategy: { type: "STRING" }
-                        }
-                    }
-                }
+                response_format: { type: "json_object" }
             })
         };
 
@@ -52,18 +44,22 @@ app.post('/api/analyze', async (req, res) => {
         let lastError;
         for (let i = 0; i < 5; i++) {
             try {
-                const response = await fetch(GEMINI_API_URL, {
+                const response = await fetch(OPENAI_API_URL, {
                     method: 'POST',
-                    headers: { 'Content-Type': 'application/json' },
+                    headers: { 
+                        'Content-Type': 'application/json',
+                        'Authorization': `Bearer ${apiKey}`
+                    },
                     body: JSON.stringify(payload)
                 });
 
                 if (!response.ok) {
-                    throw new Error(`HTTP error! status: ${response.status}`);
+                    const errorData = await response.json();
+                    throw new Error(`HTTP error! status: ${response.status}, message: ${errorData.error?.message || 'Unknown error'}`);
                 }
 
                 const result = await response.json();
-                const aiResponse = result.candidates?.[0]?.content?.parts?.[0]?.text || "AI 분석에 실패했습니다.";
+                const aiResponse = result.choices?.[0]?.message?.content || "AI 분석에 실패했습니다.";
                 
                 return res.json({ result: aiResponse });
             } catch (error) {
@@ -78,7 +74,7 @@ app.post('/api/analyze', async (req, res) => {
         throw lastError;
 
     } catch (error) {
-        console.error('Gemini API Error:', error);
+        console.error('OpenAI API Error:', error);
         res.status(500).json({ error: 'AI 분석 중 오류가 발생했습니다.', details: error.message });
     }
 });
@@ -118,16 +114,18 @@ app.post('/api/google-forms', async (req, res) => {
 
 // 건강 체크 엔드포인트
 app.get('/api/health', (req, res) => {
+    const apiKey = process.env.VITE_OPENAI_API_KEY || process.env.OPENAI_API_KEY;
     res.json({ 
         status: 'OK', 
-        geminiApiKeySet: !!process.env.GEMINI_API_KEY,
+        openaiApiKeySet: !!apiKey,
         googleFormUrlSet: !!process.env.GOOGLE_FORM_URL
     });
 });
 
 app.listen(PORT, () => {
+    const apiKey = process.env.VITE_OPENAI_API_KEY || process.env.OPENAI_API_KEY;
     console.log(`🚀 서버가 http://localhost:${PORT} 에서 실행 중입니다.`);
-    console.log(`📝 Gemini API Key 설정: ${process.env.GEMINI_API_KEY ? '✅' : '❌'}`);
+    console.log(`📝 OpenAI API Key 설정: ${apiKey ? '✅' : '❌'}`);
     console.log(`📋 Google Form URL 설정: ${process.env.GOOGLE_FORM_URL ? '✅' : '❌'}`);
 });
 

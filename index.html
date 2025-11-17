@@ -37,7 +37,7 @@
             appData: {
                 url: '', title: '', composer: '', artist: '',
                 ensembleType1: '', ensembleType2: '', musicGenre: '', lyrics: '', experienceLevel: '초심',
-                senseKeywords: [], senseText: '', senseColor: '#3B82F6', senseImage: null,
+                senseKeywords: [], senseText: '', senseColors: [], senseImage: null,
                 tech: '', analysis: '',
                 interpretation: '', evaluation: '',
                 feedback: {
@@ -54,6 +54,24 @@
             errorMessage: '',
             visualizationScene: null
         };
+
+        // =========================
+        // Color Palette
+        // =========================
+        const COLOR_PALETTE = [
+            { value: '#3B82F6', name: '파랑', description: '평화, 고요' },
+            { value: '#EF4444', name: '빨강', description: '긴장, 역동' },
+            { value: '#10B981', name: '초록', description: '안정, 자연' },
+            { value: '#F59E0B', name: '노랑', description: '기쁨, 밝음' },
+            { value: '#8B5CF6', name: '보라', description: '신비, 몽환' },
+            { value: '#EC4899', name: '핑크', description: '부드러움, 따뜻함' },
+            { value: '#F97316', name: '주황', description: '열정, 활기' },
+            { value: '#06B6D4', name: '청록', description: '시원함, 맑음' },
+            { value: '#4B5563', name: '회색', description: '쓸쓸함, 어두움' },
+            { value: '#7C3AED', name: '자주', description: '우아함, 고상함' },
+            { value: '#0EA5E9', name: '하늘', description: '자유, 희망' },
+            { value: '#F43F5E', name: '로즈', description: '따뜻함, 애정' }
+        ];
 
         // =========================
         // Icon Component (SVG)
@@ -121,12 +139,16 @@
             return `
 --- 악곡 정보 ---
 제목: ${d.title || '미입력'}, 작곡가: ${d.composer || '미입력'}, 연주자: ${d.artist || '미입력'}, 장르: ${d.musicGenre || '미입력'}
+유튜브 링크: ${d.url || '미입력'}
 경험 수준: ${d.experienceLevel}, 연주 형태: ${d.ensembleType1} - ${d.ensembleType2}
 
 --- 1단계: 반응 (감각적 감상) ---
 핵심 키워드: ${d.senseKeywords.join(', ') || '없음'}
 자유 서술: ${d.senseText || '없음'}
-선택 색상: ${d.senseColor}
+선택 색상: ${d.senseColors.length > 0 ? d.senseColors.map(c => {
+    const color = COLOR_PALETTE.find(p => p.value === c);
+    return color ? `${color.name}(${color.description})` : c;
+}).join(', ') : '없음'}
 
 --- 2단계: 기술 및 분석 ---
 기술(소리): ${d.tech || '미입력'}
@@ -147,13 +169,58 @@
 당신은 음악 교육 전문가이자 비평가입니다. 펠트만/앤더슨의 5단계 비평 구조(반응-기술-분석-해석-평가)에 따라 학생의 감상문 데이터를 분석하고, 논리적/음악적 근거 제시 여부를 진단합니다.
 최종 응답은 반드시 JSON 형식으로 제공되어야 합니다.
 
---- 분석 기준 ---
-1. 감각적 민감도(senseScore): 감각적 서술(P1)이 악곡의 실제 셈여림/빠르기와 얼마나 일치하는가? (1-100점)
-2. 분석적 이해도(analysisScore): 기술/분석(P2) 답변이 악곡의 객관적 요소와 얼마나 일치하는가? (1-100점)
-3. 심미적 통찰력(aestheticScore): 해석/평가(P3) 내용이 기술/분석(P2) 사실에 얼마나 논리적으로 근거하는가? (1-100점)
-4. goodPoints: 구체적인 칭찬 2~3가지
-5. badPoints: 논리적/음악적 근거 부족 등 보완할 점 2~3가지
-6. structuredQuestion: 보완할 점을 해결할 수 있도록 사고를 촉진하는 구조화된 질문 1개
+--- [1단계: 정보 검색 우선] ---
+학생의 입력 데이터에 포함된 악곡 정보(제목, 작곡가, 연주자, 유튜브 링크, 장르, 연주 형태)를 바탕으로 해당 악곡의 **객관적인 음악 정보**를 먼저 검색하고 요약해야 합니다.
+
+검색해야 할 객관적 정보:
+- 시대적 배경 및 작곡 시기
+- 주요 형식(소나타, 론도, 변주곡 등)
+- 조성(장조/단조, 조표)
+- 템포 표시(Allegro, Adagio, Presto 등) 및 실제 빠르기
+- 셈여림(dynamics: forte, piano, crescendo 등)의 특징
+- 특징적인 악기 구성 및 편성
+- 리듬 패턴 및 특징
+- 화성 진행의 특징
+- 작곡가의 스타일 및 시대적 특징
+
+이 검색된 객관적 정보를 '참고 기준(Reference Standard)'으로 설정하고, 학생의 감상문이 이 기준과 얼마나 일치하는지를 평가해야 합니다.
+
+--- [2단계: 분석 기준 및 평가] ---
+검색된 객관적 악곡 정보를 기준으로 다음 항목을 평가합니다:
+
+1. 감각적 민감도(senseScore): 
+   - 학생의 감각적 서술(P1)이 검색된 악곡의 실제 셈여림/빠르기/조성과 얼마나 일치하는가?
+   - 예: 학생이 "느리다"고 했으나 실제 곡이 Presto(매우 빠름)라면 점수를 낮게 평가
+   - (1-100점)
+
+2. 분석적 이해도(analysisScore): 
+   - 학생의 기술/분석(P2) 답변이 검색된 악곡의 객관적 요소(형식, 조성, 리듬 패턴, 악기 구성 등)와 얼마나 정확하게 일치하는가?
+   - 검색된 정보와 비교하여 정확도 평가
+   - (1-100점)
+
+3. 심미적 통찰력(aestheticScore): 
+   - 학생의 해석/평가(P3) 내용이 기술/분석(P2)에서 언급한 사실에 얼마나 논리적으로 근거하는가?
+   - 검색된 시대적 배경, 작곡가 스타일과의 일치 여부도 고려
+   - (1-100점)
+
+4. goodPoints: 
+   - 검색된 객관적 정보와 일치하는 학생의 정확한 관찰이나 분석을 구체적으로 칭찬
+   - 2~3가지
+
+5. badPoints: 
+   - 검색된 객관적 정보와 불일치하는 부분을 구체적으로 지적
+   - 예: "당신은 곡의 템포가 느리다고 했으나, 실제 이 곡은 낭만주의 시대의 '매우 빠르다(Presto)'로 연주됩니다."
+   - 논리적/음악적 근거 부족 등 보완할 점 2~3가지
+
+6. structuredQuestion: 
+   - 학생이 틀리게 분석한 부분과 관련된 **검색된 객관적 정보의 일부**를 힌트로 활용하여 질문을 구체화
+   - 예: "당신은 곡의 템포가 느리다고 했으나, 실제 이 곡은 낭만주의 시대의 '매우 빠르다(Presto)'로 연주됩니다. 리듬 패턴에 대한 기술을 보완할 수 있을까요? 특히 셋잇단음표의 반복 패턴이 어떻게 긴장감을 조성하는지 다시 들어보시겠어요?"
+   - 보완할 점을 해결할 수 있도록 사고를 촉진하는 구조화된 질문 1개
+
+--- [중요 지침] ---
+- 반드시 악곡 정보를 먼저 검색한 후, 그 결과를 기준으로 학생의 답변을 평가해야 합니다.
+- 일반적인 지식에 의존하지 말고, 해당 악곡의 정확한 정보를 기반으로 분석해야 합니다.
+- 피드백은 검색된 객관적 사실과 학생의 답변을 명확히 비교하여 제공해야 합니다.
             `;
 
             try {
@@ -186,10 +253,16 @@
             const systemInstruction = `
 당신은 음악 교육 전문가입니다. 학생의 감상문 초안과 보완 내용을 종합하여 아래 항목을 JSON 형식으로 생성해주세요.
 
-1. finalAppreciation: 학생의 보완된 내용을 포함한 최종 감상문 텍스트 (5단계 비평 구조 반영)
-2. performanceStrategy: 연주 영역 활용 전략
-3. appreciationStrategy: 감상 영역 활용 전략
-4. compositionStrategy: 창작 영역 활용 전략
+--- [중요 지침] ---
+- 제공된 악곡 정보(제목, 작곡가, 연주자, 유튜브 링크, 장르)를 바탕으로 해당 악곡의 객관적인 음악 정보를 참고하여 최종 감상문을 생성해야 합니다.
+- 최종 감상문은 검색된 악곡의 실제 정보(형식, 조성, 템포, 시대적 배경 등)와 일치하도록 작성되어야 합니다.
+- 학생의 보완된 내용이 객관적 사실과 일치하는지 확인하고, 필요시 정확한 정보로 보정하여 최종 감상문에 반영합니다.
+
+--- 생성 항목 ---
+1. finalAppreciation: 학생의 보완된 내용을 포함한 최종 감상문 텍스트 (5단계 비평 구조 반영, 악곡의 객관적 정보와 일치하도록 작성)
+2. performanceStrategy: 연주 영역 활용 전략 (해당 악곡의 특징을 고려한 구체적 전략)
+3. appreciationStrategy: 감상 영역 활용 전략 (해당 악곡의 형식, 시대적 배경 등을 활용한 전략)
+4. compositionStrategy: 창작 영역 활용 전략 (해당 악곡의 작곡 기법을 참고한 전략)
             `;
 
             const userPrompt = `
@@ -232,7 +305,7 @@ ${finalInput}
                     // 감상 데이터
                     senseKeywords: state.appData.senseKeywords.join(', '),
                     senseText: state.appData.senseText,
-                    senseColor: state.appData.senseColor,
+                    senseColors: state.appData.senseColors.join(', '),
                     tech: state.appData.tech,
                     analysis: state.appData.analysis,
                     interpretation: state.appData.interpretation,
@@ -345,6 +418,10 @@ ${finalInput}
                 case 1:
                     if (!state.appData.title || !state.appData.url || state.appData.senseKeywords.length === 0) {
                         showModal("악곡 제목, 유튜브 링크, 감성 키워드는 필수 입력 항목입니다.");
+                        return;
+                    }
+                    if (state.appData.senseColors.length === 0) {
+                        showModal("핵심 색상을 최소 1개 이상 선택해주세요.");
                         return;
                     }
                     state.page = 2;
@@ -480,15 +557,35 @@ ${finalInput}
                         </div>
 
                         <div>
-                            <label class="block text-sm font-medium text-gray-700">핵심 색상 (1가지 선택)</label>
-                            <select id="senseColor" onchange="updateField('senseColor', this.value)" 
-                                class="w-full p-2 border border-gray-300 rounded-md mt-1">
-                                <option value="#3B82F6" ${state.appData.senseColor === '#3B82F6' ? 'selected' : ''}>파랑 (평화, 고요)</option>
-                                <option value="#EF4444" ${state.appData.senseColor === '#EF4444' ? 'selected' : ''}>빨강 (긴장, 역동)</option>
-                                <option value="#10B981" ${state.appData.senseColor === '#10B981' ? 'selected' : ''}>초록 (안정, 자연)</option>
-                                <option value="#F59E0B" ${state.appData.senseColor === '#F59E0B' ? 'selected' : ''}>노랑 (기쁨, 밝음)</option>
-                                <option value="#4B5563" ${state.appData.senseColor === '#4B5563' ? 'selected' : ''}>회색 (쓸쓸함, 어두움)</option>
-                            </select>
+                            <label class="block text-sm font-medium text-gray-700 mb-2">핵심 색상 (1~4개 선택)</label>
+                            <div class="flex flex-wrap gap-2.5 justify-center items-center max-w-full">
+                                ${COLOR_PALETTE.map(color => {
+                                    const isSelected = state.appData.senseColors.includes(color.value);
+                                    const isDisabled = !isSelected && state.appData.senseColors.length >= 4;
+                                    const selectedClass = isSelected 
+                                        ? 'border-indigo-600 scale-110 shadow-lg ring-2 ring-indigo-300' 
+                                        : isDisabled
+                                        ? 'border-gray-200 opacity-50 cursor-not-allowed'
+                                        : 'border-gray-300 hover:scale-105';
+                                    return `
+                                        <button 
+                                            onclick="toggleColor('${color.value}')" 
+                                            ${isDisabled ? 'disabled' : ''}
+                                            class="w-10 h-10 rounded-full transition-all duration-200 ${selectedClass} border-2"
+                                            style="background-color: ${color.value};"
+                                            title="${color.name} (${color.description})"
+                                        ></button>
+                                    `;
+                                }).join('')}
+                            </div>
+                            <p class="text-center text-sm text-gray-600 mt-3">
+                                ${state.appData.senseColors.length > 0 
+                                    ? `선택된 색상: ${state.appData.senseColors.map(c => {
+                                        const color = COLOR_PALETTE.find(p => p.value === c);
+                                        return color ? `${color.name}(${color.description})` : c;
+                                    }).join(', ')} (${state.appData.senseColors.length}/4)`
+                                    : '색상을 1~4개 선택해주세요'}
+                            </p>
                         </div>
                     </div>
                 </div>
@@ -707,6 +804,20 @@ ${finalInput}
             } else {
                 if (state.appData.senseKeywords.length < 3) {
                     state.appData.senseKeywords.push(keyword);
+                }
+            }
+            render();
+        }
+
+        function toggleColor(colorValue) {
+            const idx = state.appData.senseColors.indexOf(colorValue);
+            if (idx > -1) {
+                // 이미 선택된 색상이면 제거
+                state.appData.senseColors.splice(idx, 1);
+            } else {
+                // 최대 4개까지 선택 가능
+                if (state.appData.senseColors.length < 4) {
+                    state.appData.senseColors.push(colorValue);
                 }
             }
             render();

@@ -61,6 +61,9 @@ app.post('/api/analyze', async (req, res) => {
                 const result = await response.json();
                 const aiResponse = result.choices?.[0]?.message?.content || "AI 분석에 실패했습니다.";
                 
+                // 디버깅: AI 응답 로깅
+                console.log('OpenAI API Response:', aiResponse.substring(0, 500));
+                
                 return res.json({ result: aiResponse });
             } catch (error) {
                 lastError = error;

@@ -57,7 +57,7 @@
             showErrorModal: false,
             errorMessage: '',
             visualizationScene: null,
-            comparisonRefreshInterval: null // 자동 새로고침 인터벌 ID
+            comparisonPageInitialized: false // 비교 페이지 초기화 여부
         };
 
         // =========================
@@ -1149,75 +1149,43 @@ ${finalInput || '학생이 보완 내용을 입력하지 않았습니다.'}
                 }))
                 .sort((a, b) => b.size - a.size); // 크기 순 정렬
             
-            // Canvas 생성
+            // 간단한 텍스트 기반 워드 클라우드 생성 (wordcloud2.js 오류 대신)
             container.innerHTML = '';
-            const canvas = document.createElement('canvas');
-            // Canvas 크기를 정수로 명시적으로 설정
-            const canvasWidth = 800;
-            const canvasHeight = 500;
-            canvas.width = canvasWidth;
-            canvas.height = canvasHeight;
-            canvas.style.width = `${canvasWidth}px`;
-            canvas.style.height = `${canvasHeight}px`;
-            canvas.className = 'border border-gray-200 rounded-lg';
-            container.appendChild(canvas);
             
-            // DOM에 추가된 후 워드 클라우드 생성 (약간의 지연)
-            setTimeout(() => {
-                try {
-                    console.log('워드 클라우드 생성 시도, wordList:', wordList);
-                    
-                    // Canvas 컨텍스트 확인
-                    const ctx = canvas.getContext('2d');
-                    if (!ctx) {
-                        throw new Error('Canvas context를 가져올 수 없습니다.');
-                    }
-                    
-                    // WordCloud가 정의되어 있는지 확인
-                    if (typeof WordCloud === 'undefined') {
-                        throw new Error('WordCloud 라이브러리가 로드되지 않았습니다. 페이지를 새로고침해주세요.');
-                    }
-                    
-                    console.log('WordCloud 함수 확인됨, 생성 시작...');
-                    
-                    // 워드 클라우드 생성
-                    WordCloud(canvas, {
-                        list: wordList,
-                        gridSize: Math.round(Math.sqrt(canvasWidth * canvasHeight) / 25),
-                        weightFactor: function (size) {
-                            return Math.pow(size, 0.6) * 8;
-                        },
-                        fontFamily: 'Inter, sans-serif',
-                        color: function (word, weight, fontSize, distance, theta) {
-                            // 빈도에 따라 색상 변화 (파란색 계열)
-                            const maxSize = Math.max(...wordList.map(w => w.size));
-                            const intensity = Math.min(weight / maxSize, 1);
-                            return `hsl(${220 - intensity * 40}, 70%, ${50 - intensity * 20}%)`;
-                        },
-                        rotateRatio: 0.3,
-                        rotationSteps: 2,
-                        backgroundColor: '#ffffff',
-                        minSize: 12,
-                        drawOutOfBound: false
-                    });
-                    
-                    console.log('워드 클라우드 생성 완료');
-                } catch (error) {
-                    console.error('워드 클라우드 생성 오류:', error);
-                    console.error('오류 스택:', error.stack);
-                    container.innerHTML = `
-                        <div class="text-center py-8">
-                            <p class="text-red-500 mb-2">워드 클라우드 생성 중 오류가 발생했습니다.</p>
-                            <p class="text-gray-500 text-sm">${error.message}</p>
-                            <p class="text-gray-500 text-sm mt-2">키워드 개수: ${wordList.length}개</p>
-                            <details class="mt-4 text-left">
-                                <summary class="cursor-pointer text-blue-600">오류 상세 정보</summary>
-                                <pre class="mt-2 text-xs bg-gray-100 p-2 rounded overflow-auto">${error.stack || error.toString()}</pre>
-                            </details>
-                        </div>
-                    `;
-                }
-            }, 200);
+            // 키워드를 빈도순으로 정렬
+            const sortedKeywords = Object.entries(keywordFrequency)
+                .sort((a, b) => b[1] - a[1]);
+            
+            const maxFrequency = Math.max(...sortedKeywords.map(([_, freq]) => freq));
+            
+            // 워드 클라우드 HTML 생성
+            const cloudHTML = `
+                <div class="flex flex-wrap items-center justify-center gap-3 p-6 bg-white rounded-lg border border-gray-200">
+                    ${sortedKeywords.map(([keyword, frequency]) => {
+                        // 빈도에 따라 크기와 색상 결정
+                        const sizeRatio = frequency / maxFrequency;
+                        const fontSize = Math.max(16, Math.min(48, 20 + sizeRatio * 28));
+                        const opacity = 0.6 + sizeRatio * 0.4;
+                        const hue = 220 - sizeRatio * 40;
+                        
+                        return `
+                            <span 
+                                class="inline-block px-3 py-1 rounded-full font-semibold transition-transform hover:scale-110 cursor-default"
+                                style="font-size: ${fontSize}px; color: hsl(${hue}, 70%, ${50 - sizeRatio * 20}%); opacity: ${opacity};"
+                                title="${keyword}: ${frequency}회"
+                            >
+                                ${keyword}
+                                <span class="text-xs ml-1 opacity-70">(${frequency})</span>
+                            </span>
+                        `;
+                    }).join('')}
+                </div>
+            `;
+            
+            container.innerHTML = cloudHTML;
+            
+            // wordcloud2.js는 오류가 많아서 HTML/CSS 버전만 사용
+            // 필요시 수동으로 새로고침 버튼을 눌러 최신 데이터 확인
         }
 
         // 2. 색상 분포 시각화
@@ -1362,7 +1330,18 @@ ${finalInput || '학생이 보완 내용을 입력하지 않았습니다.'}
                     url += '?' + params.toString();
                 }
                 
-                const response = await fetch(url);
+                const response = await fetch(url, {
+                    method: 'GET',
+                    headers: {
+                        'Content-Type': 'application/json'
+                    },
+                    cache: 'no-cache'
+                });
+                
+                if (!response.ok) {
+                    throw new Error(`HTTP error! status: ${response.status}`);
+                }
+                
                 const data = await response.json();
                 
                 if (data.success) {
@@ -1372,7 +1351,12 @@ ${finalInput || '학생이 보완 내용을 입력하지 않았습니다.'}
                     return [];
                 }
             } catch (error) {
-                console.error('학생 데이터 가져오기 실패:', error);
+                // 오류를 한 번만 로그로 출력
+                if (!window._fetchErrorLogged) {
+                    console.error('학생 데이터 가져오기 실패:', error.message);
+                    window._fetchErrorLogged = true;
+                    setTimeout(() => { window._fetchErrorLogged = false; }, 5000); // 5초 후 리셋
+                }
                 return [];
             }
         }
@@ -1392,7 +1376,7 @@ ${finalInput || '학생이 보완 내용을 입력하지 않았습니다.'}
                                 <span class="text-2xl">💡</span>
                                 <div>
                                     <p class="text-sm font-semibold text-blue-800">실시간 데이터 업데이트</p>
-                                    <p class="text-xs text-blue-600">학생들이 완료 버튼을 누르면 자동으로 데이터가 수집됩니다. (30초마다 자동 새로고침)</p>
+                                    <p class="text-xs text-blue-600">학생들이 완료 버튼을 누르면 자동으로 데이터가 수집됩니다. 새로고침 버튼을 눌러 최신 데이터를 확인하세요.</p>
                                 </div>
                             </div>
                             <button onclick="refreshComparison()" 
@@ -1425,8 +1409,20 @@ ${finalInput || '학생이 보완 내용을 입력하지 않았습니다.'}
 
         // 6. 비교 페이지 초기화
         async function initComparisonPage() {
+            // 중복 호출 방지
+            if (state.loading || state.comparisonPageInitialized) {
+                console.log('이미 초기화 중이거나 완료되었습니다. 중복 호출을 건너뜁니다.');
+                return;
+            }
+            
             state.loading = true;
-            render();
+            state.comparisonPageInitialized = true; // 초기화 시작 표시
+            
+            // render() 호출하지 않고 직접 DOM 업데이트
+            const container = document.getElementById('keyword-cloud-container');
+            if (container) {
+                container.innerHTML = '<p class="text-gray-500 text-center py-8">데이터를 불러오는 중...</p>';
+            }
             
             const studentsData = await fetchStudentsData();
             
@@ -1470,7 +1466,7 @@ ${finalInput || '학생이 보완 내용을 입력하지 않았습니다.'}
                 }
                 
                 state.loading = false;
-                render();
+                state.comparisonPageInitialized = false; // 실패 시 플래그 리셋
                 return;
             }
             
@@ -1485,34 +1481,16 @@ ${finalInput || '학생이 보완 내용을 입력하지 않았습니다.'}
             }
             
             state.loading = false;
-            render();
+            // render() 호출하지 않음 - 무한 루프 방지
         }
 
         // 7. 새로고침 함수
         async function refreshComparison() {
-            await initComparisonPage();
-        }
-
-        // 8. 자동 새로고침 시작
-        function startAutoRefresh() {
-            // 기존 인터벌이 있으면 제거
-            stopAutoRefresh();
-            
-            // 30초마다 자동 새로고침
-            state.comparisonRefreshInterval = setInterval(async () => {
-                if (state.page === 6 && !state.loading) {
-                    console.log('🔄 자동 새로고침 실행...');
-                    await refreshComparison();
-                }
-            }, 30000); // 30초
-        }
-
-        // 9. 자동 새로고침 중지
-        function stopAutoRefresh() {
-            if (state.comparisonRefreshInterval) {
-                clearInterval(state.comparisonRefreshInterval);
-                state.comparisonRefreshInterval = null;
+            if (state.loading) {
+                console.log('이미 로딩 중입니다. 새로고침을 건너뜁니다.');
+                return;
             }
+            await initComparisonPage();
         }
 
         function renderPage5() {
@@ -1649,14 +1627,13 @@ ${finalInput || '학생이 보완 내용을 입력하지 않았습니다.'}
                 state.page === 6 ? renderComparisonPage() :
                 '<div>알 수 없는 페이지</div>';
             
-            // Page 6 초기화
-            if (state.page === 6) {
+            // Page 6 초기화 (한 번만 실행)
+            if (state.page === 6 && !state.comparisonPageInitialized) {
+                // 페이지가 6으로 변경되었고 아직 초기화되지 않았을 때만 실행
                 setTimeout(() => initComparisonPage(), 100);
-                // 자동 새로고침 시작 (30초마다)
-                startAutoRefresh();
-            } else {
-                // 다른 페이지로 이동 시 자동 새로고침 중지
-                stopAutoRefresh();
+            } else if (state.page !== 6) {
+                // 다른 페이지로 이동하면 초기화 플래그 리셋
+                state.comparisonPageInitialized = false;
             }
 
             const html = `

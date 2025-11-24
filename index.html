@@ -710,6 +710,12 @@ ${finalInput || '학생이 보완 내용을 입력하지 않았습니다.'}
                     // Page 5에서 완료 버튼 클릭 시 Google Forms로 데이터 전송
                     await submitToGoogleForms();
                     break;
+                case 6:
+                    // Page 6에서 완료 버튼 클릭 시 Page 5로 돌아가기
+                    state.comparisonPageInitialized = false; // 비교 페이지 초기화 플래그 리셋
+                    state.page = 5;
+                    render();
+                    break;
                 default:
                     state.page = 1;
                     render();
@@ -1577,9 +1583,10 @@ ${finalInput || '학생이 보완 내용을 입력하지 않았습니다.'}
                 state.page === 1 || state.page === 2 ? "다음 단계로 이동" :
                 state.page === 3 ? "AI 진단 시작" :
                 state.page === 4 ? "최종 감상문 완성" :
+                state.page === 6 ? "최종 감상문으로 돌아가기" :
                 "완료";
             
-            const disabled = state.loading || state.page === 6;
+            const disabled = state.loading;
             const buttonClass = disabled 
                 ? 'bg-gray-400' 
                 : 'bg-indigo-600 hover:bg-indigo-700 shadow-xl';

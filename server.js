@@ -2,8 +2,25 @@ import express from 'express';
 import cors from 'cors';
 import dotenv from 'dotenv';
 import fetch from 'node-fetch';
+import fs from 'fs';
+import path from 'path';
+import { fileURLToPath } from 'url';
 
 dotenv.config();
+
+const __filename = fileURLToPath(import.meta.url);
+const __dirname = path.dirname(__filename);
+
+// 데이터 파일 경로
+const STUDENTS_DATA_FILE = path.join(__dirname, 'students-data.json');
+
+// 데이터 파일 초기화 함수
+function ensureDataFile() {
+    if (!fs.existsSync(STUDENTS_DATA_FILE)) {
+        fs.writeFileSync(STUDENTS_DATA_FILE, JSON.stringify([], null, 2), 'utf8');
+        console.log('📁 학생 데이터 파일 생성:', STUDENTS_DATA_FILE);
+    }
+}
 
 // YouTube Data API를 사용하여 동영상 정보 가져오기
 async function getYouTubeVideoInfo(videoUrl) {
@@ -104,7 +121,9 @@ app.post('/api/analyze', async (req, res) => {
         let enhancedUserPrompt = userPrompt;
         if (youtubeInfo) {
             enhancedUserPrompt = `
---- [YouTube Data API로 가져온 정확한 동영상 정보] ---
+--- [YouTube Data API로 가져온 동영상 정보 (참고용)] ---
+⚠️ **중요**: 아래 YouTube 정보는 **참고 자료**일 뿐입니다. 이 정보를 그대로 믿지 말고, 반드시 자신의 학습된 지식과 검색 능력을 활용하여 **정확한 악곡 정보를 확정**하세요.
+
 동영상 제목: ${youtubeInfo.title}
 채널명: ${youtubeInfo.channelTitle}
 게시일: ${youtubeInfo.publishedAt}
@@ -112,10 +131,11 @@ app.post('/api/analyze', async (req, res) => {
 설명:
 ${youtubeInfo.description}
 
-**중요 지시사항**:
-1. 위 YouTube 정보에서 작곡가, 악곡 제목, 연주자 정보를 추출하세요.
-2. 이 정보를 바탕으로 자신의 학습된 지식을 활용하여 해당 악곡의 객관적인 음악 정보를 제공하세요.
-3. YouTube 정보와 학습된 지식이 충돌하는 경우, YouTube 정보를 우선하세요.
+**필수 작업**:
+1. 위 YouTube 정보에서 작곡가, 악곡 제목, 연주자 정보를 **단서**로 추출하세요.
+2. **이 단서를 바탕으로 자신의 학습된 지식과 검색 능력을 활용**하여 해당 악곡의 **정확한 정보**를 확정하세요.
+3. YouTube 정보가 잘못되었거나 불일치하는 경우, **학습된 지식과 검색 결과를 우선**하세요.
+4. 확정한 정확한 정보를 기준으로 학생의 감상문을 평가하세요.
 
 --- [원본 사용자 입력] ---
 ${userPrompt}
@@ -178,36 +198,157 @@ ${userPrompt}
     }
 });
 
-// Google Forms 데이터 수신 엔드포인트 (entry code 연동용)
+// Google Forms 데이터 수신 및 전송 엔드포인트
 app.post('/api/google-forms', async (req, res) => {
     try {
         const formData = req.body;
         
-        console.log('📝 Google Forms 데이터 수신:', formData);
+        console.log('📝 Google Forms 데이터 수신:', Object.keys(formData));
 
-        // Google Forms entry code를 사용한 데이터 매핑
-        // 나중에 entry code를 받으면 이 부분을 수정합니다
+        // Google Forms URL
+        const formUrl = process.env.GOOGLE_FORM_URL || 'https://docs.google.com/forms/d/1c37LIvsiqaRk9ivEKUvmlKgt9O83D05qtAHNxa5jWOY/formResponse';
+
+        // Entry point 매핑
         const mappedData = {
-            // 예시: entry.123456789: formData.entry_123456789
-            // 실제 entry code를 받으면 여기에 매핑 로직 추가
+            'entry.759135577': formData.url || '', // 유튜브 링크
+            'entry.651308062': `${formData.title || ''} / ${formData.composer || ''}`, // 악곡 제목 / 작곡
+            'entry.1693298501': formData.artist || '', // 가수 / 연주자 이름
+            'entry.1313965673': formData.ensembleType1 || '', // 연주 형태 1 (기악/성악)
+            'entry.2019841641': formData.musicGenre || '', // 음악 분류 (장르)
+            'entry.402441130': formData.senseKeywords || '', // 감성 키워드 (2~3가지 선택)
+            'entry.56073634': formData.senseText || '', // 느낌/분위기 서술 (50자 내외)
+            'entry.1205363687': formData.senseColors || '', // 핵심 색상 (1~4개 선택)
+            'entry.1842277818': formData.techSound || '', // 2-1. 소리 및 음색
+            'entry.1494839761': formData.techRhythm || '', // 2-2. 속도 및 리듬
+            'entry.951948701': formData.analysisHarmony || '', // 3-1. 화성 및 분위기
+            'entry.730534621': formData.analysisForm || '', // 3-2. 형식 및 전개
+            'entry.1563387102': formData.interpIntent || '', // 4-1. 작곡 의도 및 메시지
+            'entry.1108413047': formData.interpScene || '', // 4-2. 개인적 공감 및 장면
+            'entry.251864974': formData.evalArt || '', // 5-1. 예술적 가치 평가
+            'entry.2091835272': formData.evalApply || '', // 5-2. 융합 및 확장 적용
+            'entry.1358120920': formData.feedbackInput || '', // 감상문 보완 내용 직접 입력
+            'entry.1985851644': formData.finalAppreciation || '' // 📝 학생의 보완된 최종 감상문
         };
 
-        // TODO: Google Forms로 데이터 전송 (entry code 필요)
-        // const formUrl = process.env.GOOGLE_FORM_URL;
-        // const response = await fetch(formUrl, {
-        //     method: 'POST',
-        //     body: new URLSearchParams(mappedData)
-        // });
+        // Google Forms로 데이터 전송
+        const formParams = new URLSearchParams();
+        Object.entries(mappedData).forEach(([key, value]) => {
+            if (value) {
+                formParams.append(key, value);
+            }
+        });
+
+        const response = await fetch(formUrl, {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/x-www-form-urlencoded',
+            },
+            body: formParams.toString()
+        });
+
+        // Google Forms는 성공 시 200 상태 코드를 반환하지 않을 수 있으므로 응답 확인
+        if (response.status === 200 || response.status === 0) {
+            console.log('✅ Google Forms 전송 성공');
+        } else {
+            console.warn('⚠️ Google Forms 응답 상태:', response.status);
+        }
+
+        // ✅ 로컬 JSON 파일에 저장 (비교 기능용)
+        try {
+            ensureDataFile();
+            let studentsData = [];
+            
+            try {
+                const fileContent = fs.readFileSync(STUDENTS_DATA_FILE, 'utf8');
+                studentsData = JSON.parse(fileContent);
+            } catch (error) {
+                console.warn('기존 데이터 파일 읽기 실패, 새로 생성:', error.message);
+                studentsData = [];
+            }
+            
+            // 색상 데이터 파싱 (문자열 또는 배열)
+            let parsedColors = [];
+            if (formData.senseColors) {
+                if (typeof formData.senseColors === 'string') {
+                    // "파랑(평화, 고요), 빨강(긴장, 역동)" 형식에서 실제 색상 값 추출
+                    parsedColors = formData.senseColors.split(',').map(s => {
+                        const trimmed = s.trim();
+                        // COLOR_PALETTE에서 매칭되는 색상 값 찾기 (클라이언트에서 처리)
+                        // 여기서는 원본 문자열을 그대로 저장
+                        return trimmed;
+                    }).filter(s => s);
+                } else if (Array.isArray(formData.senseColors)) {
+                    parsedColors = formData.senseColors;
+                }
+            }
+            
+            // 중복 저장 방지: userId와 url을 기반으로 중복 체크
+            const userId = formData.userId || `user_${Date.now()}`;
+            const url = formData.url || '';
+            const timestamp = formData.timestamp || new Date().toISOString();
+            
+            // 기존 데이터에서 같은 userId와 url 조합이 있는지 확인
+            const existingIndex = studentsData.findIndex(s => 
+                s.userId === userId && s.url === url
+            );
+            
+            const newStudentData = {
+                userId: userId,
+                timestamp: timestamp,
+                // 악곡 정보
+                title: formData.title || '',
+                composer: formData.composer || '',
+                artist: formData.artist || '',
+                url: url,
+                musicGenre: formData.musicGenre || '',
+                ensembleType1: formData.ensembleType1 || '',
+                // 감각적 감상 데이터 (비교용)
+                senseKeywords: formData.senseKeywords ? 
+                    (typeof formData.senseKeywords === 'string' 
+                        ? formData.senseKeywords.split(',').map(s => s.trim()).filter(s => s)
+                        : formData.senseKeywords) 
+                    : [],
+                senseColors: parsedColors,
+                senseText: formData.senseText || '',
+                // 추가 데이터 (선택사항)
+                scores: {
+                    senseScore: formData.senseScore || 0,
+                    techScore: formData.techScore || 0,
+                    analysisScore: formData.analysisScore || 0,
+                    consistencyScore: formData.consistencyScore || 0,
+                    aestheticScore: formData.aestheticScore || 0
+                }
+            };
+            
+            if (existingIndex >= 0) {
+                // 기존 데이터 업데이트 (최신 정보로 덮어쓰기)
+                studentsData[existingIndex] = newStudentData;
+                console.log(`🔄 학생 데이터 업데이트 완료 (userId: ${userId})`);
+            } else {
+                // 새 데이터 추가
+                studentsData.push(newStudentData);
+                console.log(`✅ 새 학생 데이터 저장 완료 (userId: ${userId})`);
+            }
+            
+            // 파일에 저장
+            fs.writeFileSync(STUDENTS_DATA_FILE, JSON.stringify(studentsData, null, 2), 'utf8');
+            console.log(`📊 총 ${studentsData.length}명의 학생 데이터 저장됨`);
+        } catch (saveError) {
+            console.warn('⚠️ 로컬 데이터 저장 실패 (비교 기능에 영향 없음):', saveError.message);
+        }
 
         res.json({ 
             success: true, 
-            message: 'Google Forms 연동 준비 완료. entry code를 설정해주세요.',
-            receivedData: formData
+            message: 'Google Forms로 데이터가 성공적으로 전송되었습니다.',
+            status: response.status || 200
         });
 
     } catch (error) {
         console.error('Google Forms Error:', error);
-        res.status(500).json({ error: 'Google Forms 전송 중 오류가 발생했습니다.' });
+        res.status(500).json({ 
+            error: 'Google Forms 전송 중 오류가 발생했습니다.', 
+            details: error.message 
+        });
     }
 });
 
@@ -221,6 +362,84 @@ app.get('/api/health', (req, res) => {
         youtubeApiKeySet: !!youtubeApiKey,
         googleFormUrlSet: !!process.env.GOOGLE_FORM_URL
     });
+});
+
+// ✅ 학생 데이터 조회 엔드포인트
+app.get('/api/students-data', (req, res) => {
+    try {
+        ensureDataFile();
+        
+        const fileContent = fs.readFileSync(STUDENTS_DATA_FILE, 'utf8');
+        const studentsData = JSON.parse(fileContent);
+        
+        // 필터링 옵션 (선택사항)
+        const { title, composer, limit } = req.query;
+        let filteredData = studentsData;
+        
+        if (title) {
+            filteredData = filteredData.filter(s => 
+                s.title && s.title.toLowerCase().includes(title.toLowerCase())
+            );
+        }
+        
+        if (composer) {
+            filteredData = filteredData.filter(s => 
+                s.composer && s.composer.toLowerCase().includes(composer.toLowerCase())
+            );
+        }
+        
+        if (limit) {
+            filteredData = filteredData.slice(-parseInt(limit)); // 최근 N개만
+        }
+        
+        res.json({
+            success: true,
+            students: filteredData,
+            count: filteredData.length,
+            total: studentsData.length
+        });
+    } catch (error) {
+        console.error('학생 데이터 조회 오류:', error);
+        res.status(500).json({ 
+            error: '데이터를 가져올 수 없습니다.', 
+            details: error.message 
+        });
+    }
+});
+
+// ✅ 특정 악곡의 데이터만 조회
+app.get('/api/students-data/by-music', (req, res) => {
+    try {
+        const { title, composer } = req.query;
+        
+        if (!title && !composer) {
+            return res.status(400).json({ 
+                error: 'title 또는 composer 파라미터가 필요합니다.' 
+            });
+        }
+        
+        ensureDataFile();
+        const fileContent = fs.readFileSync(STUDENTS_DATA_FILE, 'utf8');
+        const studentsData = JSON.parse(fileContent);
+        
+        const filteredData = studentsData.filter(s => {
+            const titleMatch = title ? 
+                (s.title && s.title.toLowerCase().includes(title.toLowerCase())) : true;
+            const composerMatch = composer ? 
+                (s.composer && s.composer.toLowerCase().includes(composer.toLowerCase())) : true;
+            return titleMatch && composerMatch;
+        });
+        
+        res.json({
+            success: true,
+            students: filteredData,
+            count: filteredData.length,
+            filter: { title, composer }
+        });
+    } catch (error) {
+        console.error('악곡별 데이터 조회 오류:', error);
+        res.status(500).json({ error: '데이터를 가져올 수 없습니다.' });
+    }
 });
 
 app.listen(PORT, () => {

@@ -11,6 +11,9 @@
     <!-- Three.js -->
     <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
     
+    <!-- WordCloud2.js -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/wordcloud2.js/1.2.2/wordcloud2.min.js"></script>
+    
     <style>
         @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap');
         body {
@@ -53,7 +56,8 @@
             feedbackInput: '',
             showErrorModal: false,
             errorMessage: '',
-            visualizationScene: null
+            visualizationScene: null,
+            comparisonRefreshInterval: null // 자동 새로고침 인터벌 ID
         };
 
         // =========================
@@ -144,6 +148,74 @@
             }
         }
 
+        // Page 5에서 완료 버튼 클릭 시 Google Forms로 데이터 전송
+        async function submitToGoogleForms() {
+            state.loading = true;
+            render();
+
+            try {
+                const googleFormsData = {
+                    userId: state.userId,
+                    timestamp: new Date().toISOString(),
+                    // 악곡 정보
+                    title: state.appData.title,
+                    url: state.appData.url,
+                    artist: state.appData.artist,
+                    composer: state.appData.composer,
+                    musicGenre: state.appData.musicGenre,
+                    ensembleType1: state.appData.ensembleType1,
+                    // 감상 데이터
+                    senseKeywords: state.appData.senseKeywords.join(', '),
+                    senseText: state.appData.senseText,
+                    senseColors: state.appData.senseColors.length > 0 
+                        ? state.appData.senseColors.map(c => {
+                            const color = COLOR_PALETTE.find(p => p.value === c);
+                            return color ? `${color.name}(${color.description})` : c;
+                        }).join(', ')
+                        : '',
+                    techSound: state.appData.techSound,
+                    techRhythm: state.appData.techRhythm,
+                    analysisHarmony: state.appData.analysisHarmony,
+                    analysisForm: state.appData.analysisForm,
+                    interpIntent: state.appData.interpIntent,
+                    interpScene: state.appData.interpScene,
+                    evalArt: state.appData.evalArt,
+                    evalApply: state.appData.evalApply,
+                    // AI 분석 결과
+                    senseScore: state.appData.scores[0],
+                    techScore: state.appData.scores[1],
+                    analysisScore: state.appData.scores[2],
+                    consistencyScore: state.appData.scores[3],
+                    aestheticScore: state.appData.scores[4],
+                    goodPoints: state.appData.feedback.goodPoints,
+                    badPoints: state.appData.feedback.badPoints,
+                    structuredQuestion: state.appData.feedback.structuredQuestion,
+                    draftAppreciation: state.appData.feedback.draftAppreciation,
+                    modelAppreciation: state.appData.feedback.modelAppreciation,
+                    feedbackInput: state.feedbackInput,
+                    // 최종 결과
+                    finalAppreciation: state.appData.finalAppreciation,
+                    performanceStrategy: state.appData.strategy.performance,
+                    appreciationStrategy: state.appData.strategy.appreciation,
+                    compositionStrategy: state.appData.strategy.composition
+                };
+
+                const result = await sendToGoogleForms(googleFormsData);
+                
+                if (result.success) {
+                    showModal("감상문이 성공적으로 제출되었습니다! 🎉\n\nGoogle Forms에 응답이 저장되었습니다.");
+                } else {
+                    showModal(`Google Forms 전송 중 오류가 발생했습니다.\n\n${result.error || '알 수 없는 오류'}`);
+                }
+            } catch (error) {
+                console.error("Google Forms 전송 오류:", error);
+                showModal("Google Forms 전송 중 오류가 발생했습니다. 잠시 후 다시 시도해주세요.");
+            } finally {
+                state.loading = false;
+                render();
+            }
+        }
+
         function getAppreciationDataForAI() {
             const d = state.appData;
             return `
@@ -201,30 +273,38 @@
   "modelAppreciation": "문자열 (이 악곡에 대한 모범 감상문 예시)"
 }
 
---- [0단계: 악곡 정보 일치성 검증 (최우선)] ---
-**가장 먼저 수행해야 할 작업**: YouTube Data API로 가져온 동영상 정보를 분석하여 악곡 정보를 추출하고, 학생이 입력한 제목/작곡가/연주자와 비교하세요.
+--- [0단계: 악곡 정보 정확성 검증 및 확정 (최우선)] ---
+**가장 먼저 수행해야 할 작업**: YouTube Data API로 가져온 동영상 정보를 **참고 자료**로만 사용하고, **반드시 자신의 학습된 지식과 검색 능력을 활용하여 정확한 악곡 정보를 확정**하세요.
 
-**1단계: YouTube 정보 분석 (최우선)**
-- 시스템이 제공한 YouTube 동영상 정보를 먼저 분석하세요:
-  * 동영상 제목에서 작곡가, 악곡 제목, 연주자 정보를 추출하세요
-  * 동영상 설명에서 악곡의 배경, 형식, 특징 등을 확인하세요
+**⚠️ 중요 원칙: YouTube 정보를 그대로 믿지 마세요**
+- YouTube 동영상 제목, 설명, 태그는 **사용자가 임의로 작성한 정보**일 수 있습니다.
+- YouTube 정보는 **참고 자료**일 뿐이며, **절대적인 기준이 아닙니다**.
+- YouTube 정보와 학습된 지식이 충돌하는 경우, **학습된 지식과 검색 결과를 우선**하세요.
+
+**1단계: YouTube 정보 분석 (참고용)**
+- 시스템이 제공한 YouTube 동영상 정보를 참고 자료로 분석하세요:
+  * 동영상 제목에서 작곡가, 악곡 제목, 연주자 정보를 추출하세요 (하지만 이것이 정확하다고 가정하지 마세요)
+  * 동영상 설명에서 악곡의 배경, 형식, 특징 등을 확인하세요 (하지만 이것이 정확하다고 가정하지 마세요)
   * 태그에서 관련 키워드를 확인하세요
 
-**2단계: 학습된 지식으로 보완**
-- YouTube 정보에서 추출한 작곡가와 악곡 제목을 바탕으로, 자신의 학습된 지식을 활용하여 다음 정보를 제공하세요:
-  * 시대적 배경 및 작곡 시기
-  * 주요 형식(소나타, 론도, 변주곡 등)
-  * 조성(장조/단조, 조표)
-  * 템포 표시(Allegro, Adagio, Presto 등) 및 실제 빠르기
-  * 셈여림(dynamics: forte, piano, crescendo 등)의 특징
-  * 특징적인 악기 구성 및 편성
-  * 리듬 패턴 및 특징
-  * 화성 진행의 특징
-  * 작곡가의 스타일 및 시대적 특징
+**2단계: 정확한 악곡 정보 검색 및 확정 (필수)**
+- YouTube 정보에서 추출한 작곡가와 악곡 제목을 **단서**로 사용하여, **자신의 학습된 지식과 검색 능력을 활용**하여 다음 정보를 **정확하게** 확정하세요:
+  * **작곡가의 정확한 이름과 생몰년도**
+  * **악곡의 정확한 제목 (원어 포함)**
+  * **작곡 시기 및 시대적 배경**
+  * **주요 형식(소나타, 론도, 변주곡 등)**
+  * **조성(장조/단조, 조표)**
+  * **템포 표시(Allegro, Adagio, Presto 등) 및 실제 빠르기**
+  * **셈여림(dynamics: forte, piano, crescendo 등)의 특징**
+  * **특징적인 악기 구성 및 편성**
+  * **리듬 패턴 및 특징**
+  * **화성 진행의 특징**
+  * **작곡가의 스타일 및 시대적 특징**
 
-**중요**: 
-- YouTube 정보와 학습된 지식이 충돌하는 경우, YouTube 정보를 우선하세요.
-- YouTube 정보가 부족한 경우에만 학습된 지식을 활용하세요.
+**3단계: 정보 검증 및 불일치 처리**
+- 확정한 정확한 악곡 정보와 YouTube 정보를 비교하세요.
+- YouTube 정보가 잘못되었거나 불일치하는 경우, **확정한 정확한 정보를 기준**으로 사용하세요.
+- 확정한 정확한 악곡 정보와 학생이 입력한 제목/작곡가/연주자를 비교하세요.
 
 **3단계: 학생 입력과 비교**
 - 위에서 분석한 악곡 정보와 학생이 입력한 제목, 작곡가, 연주자, 장르를 비교하세요.
@@ -235,8 +315,8 @@
 
 **예시**: 유튜브 링크가 슈베르트의 "마왕(Erlkönig)"인데, 학생이 "소찬휘 - Tears"에 대한 감상을 작성했다면, 이는 명백한 불일치입니다. 즉시 감지하고 낮은 점수를 부여하세요.
 
---- [1단계: 정보 분석 우선] ---
-악곡 정보가 일치하는 경우에만, 위에서 분석한 YouTube 정보와 학습된 지식을 종합하여 해당 악곡의 **객관적인 음악 정보**를 확정하세요.
+--- [1단계: 확정된 정보를 기준으로 평가] ---
+위에서 확정한 **정확한 악곡 정보**를 기준으로 학생의 감상문을 평가하세요.
 
 **확정해야 할 객관적 정보**:
 - 시대적 배경 및 작곡 시기
@@ -469,7 +549,12 @@ ${finalInput || '학생이 보완 내용을 입력하지 않았습니다.'}
                     // 감상 데이터
                     senseKeywords: state.appData.senseKeywords.join(', '),
                     senseText: state.appData.senseText,
-                    senseColors: state.appData.senseColors.join(', '),
+                    senseColors: state.appData.senseColors.length > 0 
+                        ? state.appData.senseColors.map(c => {
+                            const color = COLOR_PALETTE.find(p => p.value === c);
+                            return color ? `${color.name}(${color.description})` : c;
+                        }).join(', ')
+                        : '',
                     techSound: state.appData.techSound,
                     techRhythm: state.appData.techRhythm,
                     analysisHarmony: state.appData.analysisHarmony,
@@ -620,6 +705,10 @@ ${finalInput || '학생이 보완 내용을 입력하지 않았습니다.'}
                         return;
                     }
                     await generateFinalOutput(state.feedbackInput);
+                    break;
+                case 5:
+                    // Page 5에서 완료 버튼 클릭 시 Google Forms로 데이터 전송
+                    await submitToGoogleForms();
                     break;
                 default:
                     state.page = 1;
@@ -1009,6 +1098,423 @@ ${finalInput || '학생이 보완 내용을 입력하지 않았습니다.'}
             }
         }
 
+        // =========================
+        // 클라우드 시각화 함수들
+        // =========================
+
+        // 1. 키워드 워드 클라우드 생성
+        function createKeywordCloud(studentsData, containerId) {
+            const container = document.getElementById(containerId);
+            if (!container) {
+                console.error('워드 클라우드 컨테이너를 찾을 수 없습니다:', containerId);
+                return;
+            }
+            
+            console.log('워드 클라우드 생성 시작, 학생 데이터:', studentsData);
+            
+            // 모든 학생의 키워드를 수집하고 빈도 계산
+            const keywordFrequency = {};
+            studentsData.forEach((student, index) => {
+                console.log(`학생 ${index + 1} 키워드:`, student.senseKeywords);
+                if (student.senseKeywords && Array.isArray(student.senseKeywords)) {
+                    student.senseKeywords.forEach(keyword => {
+                        const trimmed = keyword.trim();
+                        if (trimmed) {
+                            keywordFrequency[trimmed] = (keywordFrequency[trimmed] || 0) + 1;
+                        }
+                    });
+                } else if (student.senseKeywords && typeof student.senseKeywords === 'string') {
+                    // 문자열인 경우 쉼표로 분리
+                    student.senseKeywords.split(',').forEach(keyword => {
+                        const trimmed = keyword.trim();
+                        if (trimmed) {
+                            keywordFrequency[trimmed] = (keywordFrequency[trimmed] || 0) + 1;
+                        }
+                    });
+                }
+            });
+            
+            console.log('키워드 빈도:', keywordFrequency);
+            
+            if (Object.keys(keywordFrequency).length === 0) {
+                container.innerHTML = '<p class="text-gray-500 text-center py-8">키워드 데이터가 없습니다.</p>';
+                return;
+            }
+            
+            // wordcloud2.js 형식으로 변환
+            const wordList = Object.entries(keywordFrequency)
+                .map(([text, weight]) => ({
+                    text,
+                    size: Math.max(20, weight * 15) // 최소 20px, 빈도에 따라 크기 조정
+                }))
+                .sort((a, b) => b.size - a.size); // 크기 순 정렬
+            
+            // Canvas 생성
+            container.innerHTML = '';
+            const canvas = document.createElement('canvas');
+            // Canvas 크기를 정수로 명시적으로 설정
+            const canvasWidth = 800;
+            const canvasHeight = 500;
+            canvas.width = canvasWidth;
+            canvas.height = canvasHeight;
+            canvas.style.width = `${canvasWidth}px`;
+            canvas.style.height = `${canvasHeight}px`;
+            canvas.className = 'border border-gray-200 rounded-lg';
+            container.appendChild(canvas);
+            
+            // DOM에 추가된 후 워드 클라우드 생성 (약간의 지연)
+            setTimeout(() => {
+                try {
+                    console.log('워드 클라우드 생성 시도, wordList:', wordList);
+                    
+                    // Canvas 컨텍스트 확인
+                    const ctx = canvas.getContext('2d');
+                    if (!ctx) {
+                        throw new Error('Canvas context를 가져올 수 없습니다.');
+                    }
+                    
+                    // WordCloud가 정의되어 있는지 확인
+                    if (typeof WordCloud === 'undefined') {
+                        throw new Error('WordCloud 라이브러리가 로드되지 않았습니다. 페이지를 새로고침해주세요.');
+                    }
+                    
+                    console.log('WordCloud 함수 확인됨, 생성 시작...');
+                    
+                    // 워드 클라우드 생성
+                    WordCloud(canvas, {
+                        list: wordList,
+                        gridSize: Math.round(Math.sqrt(canvasWidth * canvasHeight) / 25),
+                        weightFactor: function (size) {
+                            return Math.pow(size, 0.6) * 8;
+                        },
+                        fontFamily: 'Inter, sans-serif',
+                        color: function (word, weight, fontSize, distance, theta) {
+                            // 빈도에 따라 색상 변화 (파란색 계열)
+                            const maxSize = Math.max(...wordList.map(w => w.size));
+                            const intensity = Math.min(weight / maxSize, 1);
+                            return `hsl(${220 - intensity * 40}, 70%, ${50 - intensity * 20}%)`;
+                        },
+                        rotateRatio: 0.3,
+                        rotationSteps: 2,
+                        backgroundColor: '#ffffff',
+                        minSize: 12,
+                        drawOutOfBound: false
+                    });
+                    
+                    console.log('워드 클라우드 생성 완료');
+                } catch (error) {
+                    console.error('워드 클라우드 생성 오류:', error);
+                    console.error('오류 스택:', error.stack);
+                    container.innerHTML = `
+                        <div class="text-center py-8">
+                            <p class="text-red-500 mb-2">워드 클라우드 생성 중 오류가 발생했습니다.</p>
+                            <p class="text-gray-500 text-sm">${error.message}</p>
+                            <p class="text-gray-500 text-sm mt-2">키워드 개수: ${wordList.length}개</p>
+                            <details class="mt-4 text-left">
+                                <summary class="cursor-pointer text-blue-600">오류 상세 정보</summary>
+                                <pre class="mt-2 text-xs bg-gray-100 p-2 rounded overflow-auto">${error.stack || error.toString()}</pre>
+                            </details>
+                        </div>
+                    `;
+                }
+            }, 200);
+        }
+
+        // 2. 색상 분포 시각화
+        function createColorDistribution(studentsData, containerId) {
+            const container = document.getElementById(containerId);
+            if (!container) return;
+            
+            // 색상 빈도 계산 (색상 값 기준)
+            const colorFrequency = {};
+            studentsData.forEach(student => {
+                if (student.senseColors && Array.isArray(student.senseColors)) {
+                    student.senseColors.forEach(color => {
+                        const trimmed = color.trim();
+                        if (trimmed) {
+                            colorFrequency[trimmed] = (colorFrequency[trimmed] || 0) + 1;
+                        }
+                    });
+                }
+            });
+            
+            if (Object.keys(colorFrequency).length === 0) {
+                container.innerHTML = '<p class="text-gray-500 text-center py-8">색상 데이터가 없습니다.</p>';
+                return;
+            }
+            
+            // 색상 팔레트에서 이름 찾기
+            const colorData = Object.entries(colorFrequency)
+                .map(([colorValue, count]) => {
+                    // 색상 값에서 실제 hex 색상 추출
+                    let actualColorValue = colorValue;
+                    let colorInfo = COLOR_PALETTE.find(p => colorValue.includes(p.value));
+                    
+                    // "파랑(평화, 고요)" 형식에서 색상 이름으로 찾기
+                    if (!colorInfo) {
+                        colorInfo = COLOR_PALETTE.find(p => colorValue.includes(p.name));
+                        if (colorInfo) {
+                            actualColorValue = colorInfo.value;
+                        }
+                    } else {
+                        actualColorValue = colorInfo.value;
+                    }
+                    
+                    return {
+                        value: actualColorValue,
+                        name: colorInfo ? colorInfo.name : colorValue,
+                        description: colorInfo ? colorInfo.description : '',
+                        count: count,
+                        percentage: ((count / studentsData.length) * 100).toFixed(1)
+                    };
+                })
+                .sort((a, b) => b.count - a.count);
+            
+            // 시각화 HTML 생성
+            container.innerHTML = `
+                <div class="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4">
+                    ${colorData.map(color => `
+                        <div class="bg-white p-4 rounded-lg shadow-md border-2 transition-transform hover:scale-105" 
+                             style="border-color: ${color.value};">
+                            <div class="flex items-center gap-3 mb-2">
+                                <div class="w-12 h-12 rounded-full shadow-md" 
+                                     style="background-color: ${color.value};"></div>
+                                <div class="flex-1">
+                                    <div class="font-semibold text-gray-800">${color.name}</div>
+                                    <div class="text-xs text-gray-500">${color.description}</div>
+                                </div>
+                            </div>
+                            <div class="text-sm text-gray-600">
+                                <div class="font-bold text-indigo-600 text-lg">${color.count}명</div>
+                                <div class="text-xs text-gray-400">전체의 ${color.percentage}%</div>
+                            </div>
+                        </div>
+                    `).join('')}
+                </div>
+            `;
+        }
+
+        // 3. 통계 요약 생성
+        function createStatistics(studentsData, containerId) {
+            const container = document.getElementById(containerId);
+            if (!container) return;
+            
+            const totalStudents = studentsData.length;
+            const uniqueMusics = new Set(
+                studentsData.map(s => `${s.title || '미입력'} - ${s.composer || '미입력'}`)
+            ).size;
+            
+            const avgScores = {
+                sense: 0,
+                tech: 0,
+                analysis: 0,
+                consistency: 0,
+                aesthetic: 0
+            };
+            
+            let scoreCount = 0;
+            studentsData.forEach(s => {
+                if (s.scores) {
+                    avgScores.sense += s.scores.senseScore || 0;
+                    avgScores.tech += s.scores.techScore || 0;
+                    avgScores.analysis += s.scores.analysisScore || 0;
+                    avgScores.consistency += s.scores.consistencyScore || 0;
+                    avgScores.aesthetic += s.scores.aestheticScore || 0;
+                    scoreCount++;
+                }
+            });
+            
+            if (scoreCount > 0) {
+                Object.keys(avgScores).forEach(key => {
+                    avgScores[key] = (avgScores[key] / scoreCount).toFixed(1);
+                });
+            }
+            
+            container.innerHTML = `
+                <div class="grid grid-cols-1 md:grid-cols-3 gap-4">
+                    <div class="bg-blue-50 p-4 rounded-lg border border-blue-200">
+                        <div class="text-sm text-blue-600 font-medium">총 학생 수</div>
+                        <div class="text-3xl font-bold text-blue-700 mt-2">${totalStudents}명</div>
+                    </div>
+                    <div class="bg-green-50 p-4 rounded-lg border border-green-200">
+                        <div class="text-sm text-green-600 font-medium">감상한 악곡 수</div>
+                        <div class="text-3xl font-bold text-green-700 mt-2">${uniqueMusics}곡</div>
+                    </div>
+                    <div class="bg-purple-50 p-4 rounded-lg border border-purple-200">
+                        <div class="text-sm text-purple-600 font-medium">평균 감각적 민감도</div>
+                        <div class="text-3xl font-bold text-purple-700 mt-2">${avgScores.sense}점</div>
+                    </div>
+                </div>
+            `;
+        }
+
+        // 4. 학생 데이터 가져오기
+        async function fetchStudentsData(filters = {}) {
+            try {
+                let url = `${API_BASE_URL}/api/students-data`;
+                const params = new URLSearchParams();
+                
+                if (filters.title) params.append('title', filters.title);
+                if (filters.composer) params.append('composer', filters.composer);
+                if (filters.limit) params.append('limit', filters.limit);
+                
+                if (params.toString()) {
+                    url += '?' + params.toString();
+                }
+                
+                const response = await fetch(url);
+                const data = await response.json();
+                
+                if (data.success) {
+                    return data.students || [];
+                } else {
+                    console.error('데이터 가져오기 실패:', data.error);
+                    return [];
+                }
+            } catch (error) {
+                console.error('학생 데이터 가져오기 실패:', error);
+                return [];
+            }
+        }
+
+        // 5. 비교 페이지 렌더링
+        function renderComparisonPage() {
+            return `
+                <div class="space-y-6">
+                    <h2 class="text-2xl font-bold text-indigo-700 flex items-center">
+                        ${icons.BarChart(24)}
+                        <span class="ml-2">📊 감각적 감상 비교 분석</span>
+                    </h2>
+                    
+                    <div class="bg-blue-50 border border-blue-200 rounded-lg p-4 mb-4">
+                        <div class="flex items-center justify-between">
+                            <div class="flex items-center gap-2">
+                                <span class="text-2xl">💡</span>
+                                <div>
+                                    <p class="text-sm font-semibold text-blue-800">실시간 데이터 업데이트</p>
+                                    <p class="text-xs text-blue-600">학생들이 완료 버튼을 누르면 자동으로 데이터가 수집됩니다. (30초마다 자동 새로고침)</p>
+                                </div>
+                            </div>
+                            <button onclick="refreshComparison()" 
+                                    class="px-4 py-2 bg-indigo-600 text-white rounded-lg hover:bg-indigo-700 transition-colors text-sm font-semibold shadow-md">
+                                🔄 새로고침
+                            </button>
+                        </div>
+                    </div>
+                    
+                    <div class="bg-white p-6 rounded-lg shadow-md">
+                        <div class="flex justify-between items-center mb-4">
+                            <h3 class="text-xl font-semibold text-gray-700">키워드 클라우드</h3>
+                            <span class="text-sm text-gray-500" id="data-count-info">로딩 중...</span>
+                        </div>
+                        <div id="keyword-cloud-container" class="w-full flex justify-center items-center bg-gray-50 p-4 rounded-lg min-h-[500px]"></div>
+                    </div>
+                    
+                    <div class="bg-white p-6 rounded-lg shadow-md">
+                        <h3 class="text-xl font-semibold text-gray-700 mb-4">색상 분포</h3>
+                        <div id="color-distribution-container"></div>
+                    </div>
+                    
+                    <div class="bg-white p-6 rounded-lg shadow-md">
+                        <h3 class="text-xl font-semibold text-gray-700 mb-4">통계 요약</h3>
+                        <div id="statistics-container"></div>
+                    </div>
+                </div>
+            `;
+        }
+
+        // 6. 비교 페이지 초기화
+        async function initComparisonPage() {
+            state.loading = true;
+            render();
+            
+            const studentsData = await fetchStudentsData();
+            
+            if (studentsData.length === 0) {
+                // 데이터가 없을 때 더 명확한 안내 메시지
+                const container = document.getElementById('keyword-cloud-container');
+                if (container) {
+                    container.innerHTML = `
+                        <div class="w-full text-center py-12">
+                            <div class="text-6xl mb-4">📭</div>
+                            <h3 class="text-xl font-semibold text-gray-700 mb-2">아직 제출된 데이터가 없습니다</h3>
+                            <p class="text-gray-500 mb-4">
+                                학생들이 감상문을 작성하고 <strong>완료 버튼</strong>을 눌러야<br>
+                                비교 분석 데이터가 수집됩니다.
+                            </p>
+                            <div class="bg-blue-50 border border-blue-200 rounded-lg p-4 text-left max-w-md mx-auto text-sm text-gray-700">
+                                <p class="font-semibold mb-2">📋 데이터 수집 방법:</p>
+                                <ol class="list-decimal list-inside space-y-1">
+                                    <li>학생이 1~3단계 감상 입력</li>
+                                    <li>AI 진단 및 보완 내용 입력</li>
+                                    <li>최종 감상문 완성</li>
+                                    <li><strong>완료 버튼 클릭</strong> ← 이 단계에서 데이터 저장</li>
+                                </ol>
+                            </div>
+                            <button onclick="refreshComparison()" 
+                                    class="mt-6 px-6 py-3 bg-indigo-600 text-white rounded-lg hover:bg-indigo-700 transition-colors font-semibold">
+                                🔄 새로고침
+                            </button>
+                        </div>
+                    `;
+                }
+                
+                const colorContainer = document.getElementById('color-distribution-container');
+                if (colorContainer) {
+                    colorContainer.innerHTML = '<p class="text-gray-500 text-center py-8">데이터가 없습니다.</p>';
+                }
+                
+                const statsContainer = document.getElementById('statistics-container');
+                if (statsContainer) {
+                    statsContainer.innerHTML = '<p class="text-gray-500 text-center py-8">데이터가 없습니다.</p>';
+                }
+                
+                state.loading = false;
+                render();
+                return;
+            }
+            
+            createKeywordCloud(studentsData, 'keyword-cloud-container');
+            createColorDistribution(studentsData, 'color-distribution-container');
+            createStatistics(studentsData, 'statistics-container');
+            
+            // 데이터 개수 표시 업데이트
+            const countInfo = document.getElementById('data-count-info');
+            if (countInfo) {
+                countInfo.textContent = `총 ${studentsData.length}명의 데이터`;
+            }
+            
+            state.loading = false;
+            render();
+        }
+
+        // 7. 새로고침 함수
+        async function refreshComparison() {
+            await initComparisonPage();
+        }
+
+        // 8. 자동 새로고침 시작
+        function startAutoRefresh() {
+            // 기존 인터벌이 있으면 제거
+            stopAutoRefresh();
+            
+            // 30초마다 자동 새로고침
+            state.comparisonRefreshInterval = setInterval(async () => {
+                if (state.page === 6 && !state.loading) {
+                    console.log('🔄 자동 새로고침 실행...');
+                    await refreshComparison();
+                }
+            }, 30000); // 30초
+        }
+
+        // 9. 자동 새로고침 중지
+        function stopAutoRefresh() {
+            if (state.comparisonRefreshInterval) {
+                clearInterval(state.comparisonRefreshInterval);
+                state.comparisonRefreshInterval = null;
+            }
+        }
+
         function renderPage5() {
             // Initialize radar chart after render
             setTimeout(() => initRadarChart('radar-chart-container'), 100);
@@ -1077,6 +1583,13 @@ ${finalInput || '학생이 보완 내용을 입력하지 않았습니다.'}
                             <p><strong class="text-blue-700">▶ 창작 전략:</strong> ${state.appData.strategy.composition}</p>
                         </div>
                     </div>
+                    
+                    <div class="text-center mt-6">
+                        <button onclick="state.page = 6; render();" 
+                                class="px-6 py-3 bg-indigo-600 text-white rounded-lg hover:bg-indigo-700 transition-colors font-semibold shadow-lg">
+                            📊 전체 비교 분석 보기
+                        </button>
+                    </div>
                 </div>
             `;
         }
@@ -1088,7 +1601,7 @@ ${finalInput || '학생이 보완 내용을 입력하지 않았습니다.'}
                 state.page === 4 ? "최종 감상문 완성" :
                 "완료";
             
-            const disabled = state.loading || state.page === 5;
+            const disabled = state.loading || state.page === 6;
             const buttonClass = disabled 
                 ? 'bg-gray-400' 
                 : 'bg-indigo-600 hover:bg-indigo-700 shadow-xl';
@@ -1132,7 +1645,19 @@ ${finalInput || '학생이 보완 내용을 입력하지 않았습니다.'}
                 state.page === 2 ? renderPage2() :
                 state.page === 3 ? renderPage3() :
                 state.page === 4 ? renderPage4() :
-                renderPage5();
+                state.page === 5 ? renderPage5() :
+                state.page === 6 ? renderComparisonPage() :
+                '<div>알 수 없는 페이지</div>';
+            
+            // Page 6 초기화
+            if (state.page === 6) {
+                setTimeout(() => initComparisonPage(), 100);
+                // 자동 새로고침 시작 (30초마다)
+                startAutoRefresh();
+            } else {
+                // 다른 페이지로 이동 시 자동 새로고침 중지
+                stopAutoRefresh();
+            }
 
             const html = `
                 <div class="max-w-4xl mx-auto p-4 sm:p-6 bg-gray-50 rounded-xl shadow-2xl min-h-screen">

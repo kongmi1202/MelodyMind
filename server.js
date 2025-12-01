@@ -223,7 +223,7 @@ app.post('/api/google-forms', async (req, res) => {
             'entry.951948701': formData.analysisHarmony || '', // 3-1. 화성 및 분위기
             'entry.730534621': formData.analysisForm || '', // 3-2. 형식 및 전개
             'entry.1563387102': formData.interpIntent || '', // 4-1. 작곡 의도 및 메시지
-            'entry.1108413047': formData.interpScene || '', // 4-2. 개인적 공감 및 장면
+            'entry.1108413047': formData.interpScene || '', // 4-2. 음악의 사회적 의미 및 역할
             'entry.251864974': formData.evalArt || '', // 5-1. 예술적 가치 평가
             'entry.2091835272': formData.evalApply || '', // 5-2. 융합 및 확장 적용
             'entry.1358120920': formData.feedbackInput || '', // 감상문 보완 내용 직접 입력

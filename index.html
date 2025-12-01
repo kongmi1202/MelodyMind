@@ -14,6 +14,10 @@
     <!-- WordCloud2.js -->
     <script src="https://cdnjs.cloudflare.com/ajax/libs/wordcloud2.js/1.2.2/wordcloud2.min.js"></script>
     
+    <!-- Leaflet (지도) -->
+    <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
+    <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+    
     <style>
         @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap');
         body {
@@ -41,6 +45,11 @@
                 url: '', title: '', composer: '', artist: '',
                 ensembleType1: '', ensembleType2: '', musicGenre: '', lyrics: '', experienceLevel: '초심',
                 senseKeywords: [], senseText: '', senseColors: [], senseImage: null,
+                senseExpressionType: [], senseExpressionText: '',
+                senseExpressionMovement: null, // 카메라로 캡처한 이미지 (base64)
+                senseExpressionSpace: null, // 지도에서 선택한 위치 { lat, lng, address }
+                senseExpressionPattern: null, // 도형 그리기 캔버스 데이터 (base64)
+                senseExpressionNature: [], // 선택한 자연 현상 사진들
                 techSound: '', techRhythm: '', analysisHarmony: '', analysisForm: '',
                 interpIntent: '', interpScene: '', evalArt: '', evalApply: '',
                 feedback: {
@@ -173,6 +182,12 @@
                             return color ? `${color.name}(${color.description})` : c;
                         }).join(', ')
                         : '',
+                    senseExpressionType: state.appData.senseExpressionType.join(', '),
+                    senseExpressionText: state.appData.senseExpressionText,
+                    senseExpressionMovement: state.appData.senseExpressionMovement ? '이미지 캡처됨' : '',
+                    senseExpressionSpace: state.appData.senseExpressionSpace ? JSON.stringify(state.appData.senseExpressionSpace) : '',
+                    senseExpressionPattern: state.appData.senseExpressionPattern ? '그림 생성됨' : '',
+                    senseExpressionNature: state.appData.senseExpressionNature.join(', '),
                     techSound: state.appData.techSound,
                     techRhythm: state.appData.techRhythm,
                     analysisHarmony: state.appData.analysisHarmony,
@@ -231,6 +246,22 @@
     const color = COLOR_PALETTE.find(p => p.value === c);
     return color ? `${color.name}(${color.description})` : c;
 }).join(', ') : '없음'}
+다른 방식 표현: ${d.senseExpressionType.length > 0 ? d.senseExpressionType.map(t => {
+    const typeNames = {
+        'poetry': '📝 시적 표현/문구 (국어)',
+        'movement': '💃 움직임/동작 (체육/무용)',
+        'nature': '⚡ 자연 현상 (과학)',
+        'space': '🏞️ 공간/장소 (사회/지리)',
+        'pattern': '🔷 도형/패턴 (수학)'
+    };
+    return typeNames[t] || t;
+}).join(', ') : '없음'}
+다른 방식 표현 내용: ${d.senseExpressionText || '없음'}
+움직임 기록: ${d.senseExpressionMovement ? '이미지 캡처됨' : '없음'}
+공간 선택: ${d.senseExpressionSpace ? `${d.senseExpressionSpace.address || `${d.senseExpressionSpace.lat}, ${d.senseExpressionSpace.lng}`}` : '없음'}
+도형/패턴: ${d.senseExpressionPattern ? '그림 생성됨' : '없음'}
+자연 현상: ${d.senseExpressionNature && d.senseExpressionNature.length > 0 ? d.senseExpressionNature.join(', ') : '없음'}
+자연 현상: ${d.senseExpressionNature && d.senseExpressionNature.length > 0 ? d.senseExpressionNature.join(', ') : '없음'}
 
 --- 2단계: 기술 및 분석 ---
 2-1. 소리 및 음색 (Timbre/Dynamics): ${d.techSound || '미입력'}
@@ -240,7 +271,7 @@
 
 --- 3단계: 해석 및 평가 ---
 4-1. 작곡 의도 및 메시지 (Intent/Message): ${d.interpIntent || '미입력'}
-4-2. 개인적 공감 및 장면 (Scene/Emotion): ${d.interpScene || '미입력'}
+4-2. 음악의 사회적 의미 및 역할 (Social Meaning/Role): ${d.interpScene || '미입력'}
 5-1. 예술적 가치 평가 (Aesthetic Value): ${d.evalArt || '미입력'}
 5-2. 융합 및 확장 적용 (Application/Fusion): ${d.evalApply || '미입력'}
             `;
@@ -555,6 +586,12 @@ ${finalInput || '학생이 보완 내용을 입력하지 않았습니다.'}
                             return color ? `${color.name}(${color.description})` : c;
                         }).join(', ')
                         : '',
+                    senseExpressionType: state.appData.senseExpressionType.join(', '),
+                    senseExpressionText: state.appData.senseExpressionText,
+                    senseExpressionMovement: state.appData.senseExpressionMovement ? '이미지 캡처됨' : '',
+                    senseExpressionSpace: state.appData.senseExpressionSpace ? JSON.stringify(state.appData.senseExpressionSpace) : '',
+                    senseExpressionPattern: state.appData.senseExpressionPattern ? '그림 생성됨' : '',
+                    senseExpressionNature: state.appData.senseExpressionNature.join(', '),
                     techSound: state.appData.techSound,
                     techRhythm: state.appData.techRhythm,
                     analysisHarmony: state.appData.analysisHarmony,
@@ -694,7 +731,7 @@ ${finalInput || '학생이 보완 내용을 입력하지 않았습니다.'}
                     break;
                 case 3:
                     if (!state.appData.interpIntent || !state.appData.interpScene || !state.appData.evalArt || !state.appData.evalApply) {
-                        showModal("3단계의 모든 항목(작곡 의도 및 메시지, 개인적 공감 및 장면, 예술적 가치 평가, 융합 및 확장 적용)을 모두 작성해주세요.");
+                        showModal("3단계의 모든 항목(작곡 의도 및 메시지, 음악의 사회적 의미 및 역할, 예술적 가치 평가, 융합 및 확장 적용)을 모두 작성해주세요.");
                         return;
                     }
                     await generateFeedback();
@@ -854,6 +891,222 @@ ${finalInput || '학생이 보완 내용을 입력하지 않았습니다.'}
                                     : '색상을 1~4개 선택해주세요'}
                             </p>
                         </div>
+
+                        <div>
+                            <label class="block text-sm font-medium text-gray-700 mb-2">다른 방식으로 표현하기 (선택)</label>
+                            <div class="space-y-2 mb-3">
+                                <label class="flex items-center space-x-2 cursor-pointer hover:bg-gray-50 p-2 rounded">
+                                    <input type="checkbox" 
+                                        ${state.appData.senseExpressionType.includes('poetry') ? 'checked' : ''}
+                                        onchange="toggleExpressionType('poetry')"
+                                        class="w-4 h-4 text-indigo-600 border-gray-300 rounded focus:ring-indigo-500">
+                                    <span class="text-sm">📝 시적 표현/문구 (국어)</span>
+                                </label>
+                                <label class="flex items-center space-x-2 cursor-pointer hover:bg-gray-50 p-2 rounded">
+                                    <input type="checkbox" 
+                                        ${state.appData.senseExpressionType.includes('movement') ? 'checked' : ''}
+                                        onchange="toggleExpressionType('movement')"
+                                        class="w-4 h-4 text-indigo-600 border-gray-300 rounded focus:ring-indigo-500">
+                                    <span class="text-sm">💃 움직임/동작 (체육/무용)</span>
+                                </label>
+                                <label class="flex items-center space-x-2 cursor-pointer hover:bg-gray-50 p-2 rounded">
+                                    <input type="checkbox" 
+                                        ${state.appData.senseExpressionType.includes('nature') ? 'checked' : ''}
+                                        onchange="toggleExpressionType('nature')"
+                                        class="w-4 h-4 text-indigo-600 border-gray-300 rounded focus:ring-indigo-500">
+                                    <span class="text-sm">⚡ 자연 현상 (과학)</span>
+                                </label>
+                                <label class="flex items-center space-x-2 cursor-pointer hover:bg-gray-50 p-2 rounded">
+                                    <input type="checkbox" 
+                                        ${state.appData.senseExpressionType.includes('space') ? 'checked' : ''}
+                                        onchange="toggleExpressionType('space')"
+                                        class="w-4 h-4 text-indigo-600 border-gray-300 rounded focus:ring-indigo-500">
+                                    <span class="text-sm">🏞️ 공간/장소 (사회/지리)</span>
+                                </label>
+                                <label class="flex items-center space-x-2 cursor-pointer hover:bg-gray-50 p-2 rounded">
+                                    <input type="checkbox" 
+                                        ${state.appData.senseExpressionType.includes('pattern') ? 'checked' : ''}
+                                        onchange="toggleExpressionType('pattern')"
+                                        class="w-4 h-4 text-indigo-600 border-gray-300 rounded focus:ring-indigo-500">
+                                    <span class="text-sm">🔷 도형/패턴 (수학)</span>
+                                </label>
+                            </div>
+                            ${state.appData.senseExpressionType.length > 0 ? (() => {
+                                let content = '';
+                                
+                                // 텍스트 입력이 필요한 방식들 (poetry)
+                                const textTypes = state.appData.senseExpressionType.filter(t => t === 'poetry');
+                                if (textTypes.length > 0) {
+                                    content += `
+                                    <div class="mb-4">
+                                        <label class="block text-sm font-medium text-gray-700 mb-1">
+                                            시적 표현/문구로 표현하기
+                                        </label>
+                                        <textarea id="senseExpressionText" oninput="updateField('senseExpressionText', this.value)" rows="3" 
+                                            placeholder="예: 달빛에 물든 바다, 고요한 밤의 불안" 
+                                            class="w-full p-2 border border-gray-300 rounded-md mt-1">${state.appData.senseExpressionText}</textarea>
+                                    </div>
+                                    `;
+                                }
+                                
+                                // 자연 현상 사진 선택 (nature)
+                                if (state.appData.senseExpressionType.includes('nature')) {
+                                    const natureImages = [
+                                        { id: 'storm', name: '폭풍', emoji: '⛈️', color: '#4B5563' },
+                                        { id: 'lightning', name: '번개', emoji: '⚡', color: '#FBBF24' },
+                                        { id: 'rain', name: '비', emoji: '🌧️', color: '#60A5FA' },
+                                        { id: 'snow', name: '눈', emoji: '❄️', color: '#E0E7FF' },
+                                        { id: 'wind', name: '바람', emoji: '💨', color: '#A5B4FC' },
+                                        { id: 'wave', name: '파도', emoji: '🌊', color: '#3B82F6' },
+                                        { id: 'fire', name: '불', emoji: '🔥', color: '#EF4444' },
+                                        { id: 'cloud', name: '구름', emoji: '☁️', color: '#9CA3AF' },
+                                        { id: 'sunset', name: '일몰', emoji: '🌅', color: '#F97316' },
+                                        { id: 'moon', name: '달', emoji: '🌙', color: '#FCD34D' },
+                                        { id: 'star', name: '별', emoji: '⭐', color: '#FBBF24' },
+                                        { id: 'ocean', name: '바다', emoji: '🌊', color: '#0EA5E9' }
+                                    ];
+                                    
+                                    content += `
+                                    <div class="mb-4">
+                                        <label class="block text-sm font-medium text-gray-700 mb-2">⚡ 자연 현상으로 표현하기 (2~3개 선택)</label>
+                                        <div class="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-3">
+                                            ${natureImages.map(img => {
+                                                const isSelected = state.appData.senseExpressionNature.includes(img.id);
+                                                return `
+                                                    <div class="cursor-pointer relative" onclick="toggleNatureImage('${img.id}')" style="user-select: none;">
+                                                        <div class="border-2 rounded-lg overflow-hidden transition-all ${
+                                                            isSelected 
+                                                                ? 'border-indigo-600 ring-2 ring-indigo-300 scale-105 shadow-lg' 
+                                                                : 'border-gray-300 hover:border-gray-400 hover:shadow-md'
+                                                        }">
+                                                            <div class="w-full h-24 flex items-center justify-center relative" style="background: linear-gradient(135deg, ${img.color}15 0%, ${img.color}05 100%);">
+                                                                <span class="text-5xl ${isSelected ? 'opacity-100' : 'opacity-80'} transition-opacity">${img.emoji}</span>
+                                                                ${isSelected ? '<div class="absolute top-1 right-1 bg-indigo-600 text-white rounded-full w-6 h-6 flex items-center justify-center text-xs font-bold shadow-md">✓</div>' : ''}
+                                                            </div>
+                                                            <div class="p-2 text-center bg-white">
+                                                                <p class="text-xs font-medium text-gray-700">${img.name}</p>
+                                                            </div>
+                                                        </div>
+                                                    </div>
+                                                `;
+                                            }).join('')}
+                                        </div>
+                                        <p class="text-xs text-gray-500 mt-2">
+                                            선택된 자연 현상: ${state.appData.senseExpressionNature.length > 0 
+                                                ? state.appData.senseExpressionNature.map(id => natureImages.find(img => img.id === id)?.name).join(', ')
+                                                : '없음'} (${state.appData.senseExpressionNature.length}/3)
+                                        </p>
+                                    </div>
+                                    `;
+                                }
+                                
+                                // 카메라 움직임 기록 (movement)
+                                if (state.appData.senseExpressionType.includes('movement')) {
+                                    content += `
+                                    <div class="mb-4">
+                                        <label class="block text-sm font-medium text-gray-700 mb-2">💃 움직임/동작으로 표현하기</label>
+                                        <div id="movement-container" class="border border-gray-300 rounded-md p-4 bg-gray-50">
+                                            ${state.appData.senseExpressionMovement ? `
+                                                <div class="mb-2">
+                                                    <img src="${state.appData.senseExpressionMovement}" alt="캡처된 움직임" class="max-w-full h-auto rounded border border-gray-300" />
+                                                </div>
+                                                <button onclick="clearMovementCapture()" class="px-3 py-1 bg-red-500 text-white rounded text-sm hover:bg-red-600">삭제</button>
+                                            ` : `
+                                                <div class="text-center">
+                                                    <video id="movement-video" autoplay playsinline class="hidden w-full max-w-md mx-auto rounded border border-gray-300"></video>
+                                                    <canvas id="movement-canvas" class="hidden"></canvas>
+                                                    <div id="movement-preview" class="hidden mb-2">
+                                                        <img id="movement-preview-img" src="" alt="미리보기" class="max-w-full h-auto rounded border border-gray-300" />
+                                                    </div>
+                                                    <div id="movement-controls" class="space-y-2">
+                                                        <button onclick="startMovementCapture()" class="px-4 py-2 bg-indigo-600 text-white rounded hover:bg-indigo-700">
+                                                            📷 카메라 시작
+                                                        </button>
+                                                    </div>
+                                                    <div id="movement-capture-controls" class="hidden space-x-2 mt-2">
+                                                        <button onclick="captureMovement()" class="px-4 py-2 bg-green-600 text-white rounded hover:bg-green-700">
+                                                            📸 사진 촬영
+                                                        </button>
+                                                        <button onclick="stopMovementCapture()" class="px-4 py-2 bg-gray-600 text-white rounded hover:bg-gray-700">
+                                                            중지
+                                                        </button>
+                                                    </div>
+                                                </div>
+                                            `}
+                                        </div>
+                                    </div>
+                                    `;
+                                }
+                                
+                                // 지도 공간 체크 (space)
+                                if (state.appData.senseExpressionType.includes('space')) {
+                                    content += `
+                                    <div class="mb-4">
+                                        <label class="block text-sm font-medium text-gray-700 mb-2">🏞️ 공간/장소로 표현하기</label>
+                                        <div class="grid grid-cols-1 ${state.appData.senseExpressionSpace ? 'lg:grid-cols-2' : ''} gap-4">
+                                            <div id="space-container" class="border border-gray-300 rounded-md overflow-hidden" style="height: 400px;">
+                                                ${state.appData.senseExpressionSpace ? `
+                                                    <div class="p-4 bg-gray-50">
+                                                        <p class="text-sm mb-2"><strong>선택한 위치:</strong></p>
+                                                        <p class="text-sm text-gray-700">${state.appData.senseExpressionSpace.address || `${state.appData.senseExpressionSpace.lat.toFixed(4)}, ${state.appData.senseExpressionSpace.lng.toFixed(4)}`}</p>
+                                                        <button onclick="clearSpaceSelection()" class="mt-2 px-3 py-1 bg-red-500 text-white rounded text-sm hover:bg-red-600">다시 선택</button>
+                                                    </div>
+                                                    <div id="space-map" style="height: 350px;"></div>
+                                                ` : `
+                                                    <div id="space-map" style="height: 400px;"></div>
+                                                `}
+                                            </div>
+                                            ${state.appData.senseExpressionSpace ? `
+                                                <div class="border border-gray-300 rounded-md overflow-hidden bg-gray-50">
+                                                    <div class="p-4">
+                                                        <h4 class="font-semibold text-gray-700 mb-2">📍 선택한 위치 상세보기</h4>
+                                                        <p class="text-sm text-gray-600 mb-3">${state.appData.senseExpressionSpace.address || `${state.appData.senseExpressionSpace.lat.toFixed(4)}, ${state.appData.senseExpressionSpace.lng.toFixed(4)}`}</p>
+                                                    </div>
+                                                    <div id="space-detail-map" style="height: 350px;"></div>
+                                                </div>
+                                            ` : ''}
+                                        </div>
+                                    </div>
+                                    `;
+                                }
+                                
+                                // 도형/패턴 그리기 (pattern)
+                                if (state.appData.senseExpressionType.includes('pattern')) {
+                                    content += `
+                                    <div class="mb-4">
+                                        <label class="block text-sm font-medium text-gray-700 mb-2">🔷 도형/패턴으로 표현하기</label>
+                                        <div id="pattern-container" class="border border-gray-300 rounded-md p-4 bg-gray-50">
+                                            ${state.appData.senseExpressionPattern ? `
+                                                <div class="mb-2">
+                                                    <img src="${state.appData.senseExpressionPattern}" alt="그린 도형" class="max-w-full h-auto rounded border border-gray-300" />
+                                                </div>
+                                                <button onclick="clearPatternDrawing()" class="px-3 py-1 bg-red-500 text-white rounded text-sm hover:bg-red-600">다시 그리기</button>
+                                                <button onclick="editPatternDrawing()" class="px-3 py-1 bg-blue-500 text-white rounded text-sm hover:bg-blue-600 ml-2">수정하기</button>
+                                            ` : `
+                                                <div class="space-y-2">
+                                                    <div class="flex gap-2 mb-2">
+                                                        <button onclick="drawShape('circle')" class="px-3 py-1 bg-blue-500 text-white rounded text-sm hover:bg-blue-600">원</button>
+                                                        <button onclick="drawShape('rect')" class="px-3 py-1 bg-blue-500 text-white rounded text-sm hover:bg-blue-600">사각형</button>
+                                                        <button onclick="drawShape('triangle')" class="px-3 py-1 bg-blue-500 text-white rounded text-sm hover:bg-blue-600">삼각형</button>
+                                                        <button onclick="setDrawingMode('free')" class="px-3 py-1 bg-blue-500 text-white rounded text-sm hover:bg-blue-600">자유 그리기</button>
+                                                        <button onclick="clearPatternCanvas()" class="px-3 py-1 bg-red-500 text-white rounded text-sm hover:bg-red-600">지우기</button>
+                                                        <button onclick="savePatternDrawing()" class="px-3 py-1 bg-green-500 text-white rounded text-sm hover:bg-green-600">저장</button>
+                                                    </div>
+                                                    <div class="flex gap-2 mb-2">
+                                                        <input type="color" id="pattern-color" value="#3B82F6" class="h-8 w-16 border border-gray-300 rounded" />
+                                                        <label class="text-sm text-gray-700 flex items-center">색상 선택</label>
+                                                    </div>
+                                                    <canvas id="pattern-canvas" width="600" height="400" class="border border-gray-300 rounded bg-white cursor-crosshair"></canvas>
+                                                </div>
+                                            `}
+                                        </div>
+                                    </div>
+                                    `;
+                                }
+                                
+                                return content;
+                            })() : ''}
+                        </div>
                     </div>
                 </div>
             `;
@@ -906,14 +1159,6 @@ ${finalInput || '학생이 보완 내용을 입력하지 않았습니다.'}
                             placeholder="예: 피아노의 셋잇단음표 리듬이 계속 반복되어 긴장감을 조성하고, 곡의 중간 부분에서 멜로디가 크게 변합니다." 
                             class="w-full p-2 border border-gray-300 rounded-md mt-1">${state.appData.analysisForm}</textarea>
                     </div>
-
-                    <div class="text-center">
-                        <button onclick="showModal('협력 분석 요청 기능은 현재 베타 테스트 중입니다.')" 
-                            class="px-4 py-2 bg-gray-200 text-gray-700 rounded-full text-sm hover:bg-gray-300 transition-colors inline-flex items-center">
-                            ${icons.MessageCircle(16)}
-                            <span class="ml-2">협력 분석 요청하기</span>
-                        </button>
-                    </div>
                 </div>
             `;
         }
@@ -938,13 +1183,13 @@ ${finalInput || '학생이 보완 내용을 입력하지 않았습니다.'}
                             placeholder="예: 낭만주의 시대의 초자연적 존재와 공포에 대한 관심을 반영하며, 운명적 비극을 전달한다고 해석했습니다." 
                             class="w-full p-2 border border-gray-300 rounded-md mt-1">${state.appData.interpIntent}</textarea>
 
-                        <h3 class="font-bold text-lg text-indigo-600">4-2. 개인적 공감 및 장면 (Scene/Emotion)</h3>
+                        <h3 class="font-bold text-lg text-indigo-600">4-2. 음악의 사회적 의미 및 역할 (Social Meaning/Role)</h3>
                         <label class="block text-sm font-medium text-gray-700 mb-1">
-                            이 곡을 듣고 떠오른 나만의 기억이나 장면
-                            <span class="text-xs text-gray-500 font-normal">(곡의 분위기나 의미와 연결: 이 곡이 나에게 어떤 기억이나 감정을 불러일으키는지)</span>
+                            이 곡이 당시 사회나 현재 우리에게 어떤 의미를 주는지, 어떤 역할을 하는지
+                            <span class="text-xs text-gray-500 font-normal">(예: 이 곡이 낭만주의 시대 사람들에게 어떤 메시지를 전달했는지, 오늘날 우리에게 어떤 의미를 주는지)</span>
                         </label>
                         <textarea id="interpScene" oninput="updateField('interpScene', this.value)" rows="3" 
-                            placeholder="예: 이번 여름 방학 때 아빠, 엄마랑 보았던 달이 떠있던 강원도 바다가 떠올랐어요. 고요함 속에서 불안감이 느껴져요." 
+                            placeholder="예: 이 곡은 낭만주의 시대의 초자연적 공포를 다루며, 당시 사람들의 불안과 두려움을 음악으로 표현했습니다. 오늘날에도 운명에 대한 두려움을 공감하게 만듭니다." 
                             class="w-full p-2 border border-gray-300 rounded-md mt-1">${state.appData.interpScene}</textarea>
 
                         <h3 class="font-bold text-lg text-indigo-600">5-1. 예술적 가치 평가 (Aesthetic Value)</h3>
@@ -1656,6 +1901,20 @@ ${finalInput || '학생이 보완 내용을 입력하지 않았습니다.'}
             `;
 
             document.getElementById('app').innerHTML = html;
+            
+            // 페이지 렌더링 후 각 기능 초기화
+            if (state.page === 1) {
+                setTimeout(() => {
+                    // 지도 초기화
+                    if (state.appData.senseExpressionType.includes('space')) {
+                        initSpaceMap();
+                    }
+                    // 도형 그리기 캔버스 초기화
+                    if (state.appData.senseExpressionType.includes('pattern')) {
+                        initPatternCanvas();
+                    }
+                }, 100);
+            }
         }
 
         // =========================
@@ -1688,6 +1947,449 @@ ${finalInput || '학생이 보완 내용을 입력하지 않았습니다.'}
                     state.appData.senseColors.push(colorValue);
                 }
             }
+            render();
+        }
+
+        function toggleExpressionType(type) {
+            const idx = state.appData.senseExpressionType.indexOf(type);
+            if (idx > -1) {
+                // 이미 선택된 타입이면 제거
+                state.appData.senseExpressionType.splice(idx, 1);
+                // 선택된 타입이 없으면 텍스트도 초기화
+                if (state.appData.senseExpressionType.length === 0) {
+                    state.appData.senseExpressionText = '';
+                }
+                // 각 타입별 데이터도 초기화
+                if (type === 'movement') state.appData.senseExpressionMovement = null;
+                if (type === 'space') state.appData.senseExpressionSpace = null;
+                if (type === 'pattern') state.appData.senseExpressionPattern = null;
+            } else {
+                // 최대 2개까지 선택 가능
+                if (state.appData.senseExpressionType.length < 2) {
+                    state.appData.senseExpressionType.push(type);
+                } else {
+                    alert('표현 방식은 최대 2개까지 선택할 수 있습니다.');
+                    // 체크박스 상태를 원래대로 되돌리기 위해 다시 렌더링
+                    render();
+                    return;
+                }
+            }
+            render();
+            // 렌더링 후 각 기능 초기화
+            setTimeout(() => {
+                if (state.appData.senseExpressionType.includes('space')) {
+                    initSpaceMap();
+                }
+                if (state.appData.senseExpressionType.includes('pattern')) {
+                    initPatternCanvas();
+                }
+            }, 100);
+        }
+
+        // =========================
+        // 자연 현상 이미지 선택 기능
+        // =========================
+        function toggleNatureImage(imageId) {
+            const idx = state.appData.senseExpressionNature.indexOf(imageId);
+            if (idx > -1) {
+                // 이미 선택된 이미지면 제거
+                state.appData.senseExpressionNature.splice(idx, 1);
+            } else {
+                // 최대 3개까지 선택 가능
+                if (state.appData.senseExpressionNature.length < 3) {
+                    state.appData.senseExpressionNature.push(imageId);
+                } else {
+                    alert('자연 현상은 최대 3개까지 선택할 수 있습니다.');
+                    return;
+                }
+            }
+            render();
+        }
+
+        // =========================
+        // 카메라 움직임 기록 기능
+        // =========================
+        let movementStream = null;
+
+        async function startMovementCapture() {
+            try {
+                const video = document.getElementById('movement-video');
+                const controls = document.getElementById('movement-controls');
+                const captureControls = document.getElementById('movement-capture-controls');
+                
+                if (!video) return;
+                
+                movementStream = await navigator.mediaDevices.getUserMedia({ 
+                    video: { facingMode: 'user' } 
+                });
+                video.srcObject = movementStream;
+                video.classList.remove('hidden');
+                controls.classList.add('hidden');
+                captureControls.classList.remove('hidden');
+            } catch (error) {
+                alert('카메라 접근 권한이 필요합니다. 브라우저 설정에서 카메라 권한을 허용해주세요.');
+                console.error('카메라 접근 오류:', error);
+            }
+        }
+
+        function captureMovement() {
+            const video = document.getElementById('movement-video');
+            const canvas = document.getElementById('movement-canvas');
+            const preview = document.getElementById('movement-preview');
+            const previewImg = document.getElementById('movement-preview-img');
+            
+            if (!video || !canvas) return;
+            
+            canvas.width = video.videoWidth;
+            canvas.height = video.videoHeight;
+            const ctx = canvas.getContext('2d');
+            ctx.drawImage(video, 0, 0);
+            
+            const imageData = canvas.toDataURL('image/png');
+            state.appData.senseExpressionMovement = imageData;
+            
+            previewImg.src = imageData;
+            preview.classList.remove('hidden');
+            video.classList.add('hidden');
+            
+            render();
+        }
+
+        function stopMovementCapture() {
+            if (movementStream) {
+                movementStream.getTracks().forEach(track => track.stop());
+                movementStream = null;
+            }
+            const video = document.getElementById('movement-video');
+            const controls = document.getElementById('movement-controls');
+            const captureControls = document.getElementById('movement-capture-controls');
+            
+            if (video) video.classList.add('hidden');
+            if (controls) controls.classList.remove('hidden');
+            if (captureControls) captureControls.classList.add('hidden');
+        }
+
+        function clearMovementCapture() {
+            state.appData.senseExpressionMovement = null;
+            stopMovementCapture();
+            render();
+        }
+
+        // =========================
+        // 지도 공간 체크 기능
+        // =========================
+        let spaceMap = null;
+        let spaceMarker = null;
+
+        let spaceDetailMap = null;
+
+        function initSpaceMap() {
+            const mapContainer = document.getElementById('space-map');
+            if (!mapContainer) return;
+            
+            // 기존 맵이 있으면 제거
+            if (spaceMap) {
+                spaceMap.remove();
+                spaceMap = null;
+                spaceMarker = null;
+            }
+            
+            // 기본 위치: 서울
+            const defaultLat = state.appData.senseExpressionSpace?.lat || 37.5665;
+            const defaultLng = state.appData.senseExpressionSpace?.lng || 126.9780;
+            
+            spaceMap = L.map('space-map').setView([defaultLat, defaultLng], 13);
+            
+            L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+                attribution: '© OpenStreetMap contributors'
+            }).addTo(spaceMap);
+            
+            // 기존 선택 위치가 있으면 마커 표시
+            if (state.appData.senseExpressionSpace) {
+                spaceMarker = L.marker([defaultLat, defaultLng]).addTo(spaceMap);
+                // 상세 지도도 초기화
+                initSpaceDetailMap();
+            }
+            
+            // 지도 클릭 시 위치 선택
+            spaceMap.on('click', async (e) => {
+                const { lat, lng } = e.latlng;
+                
+                // 기존 마커 제거
+                if (spaceMarker) {
+                    spaceMap.removeLayer(spaceMarker);
+                }
+                
+                // 새 마커 추가
+                spaceMarker = L.marker([lat, lng]).addTo(spaceMap);
+                
+                // 주소 가져오기 (간단한 역지오코딩)
+                try {
+                    const response = await fetch(`https://nominatim.openstreetmap.org/reverse?format=json&lat=${lat}&lon=${lng}`);
+                    const data = await response.json();
+                    const address = data.display_name || `${lat.toFixed(4)}, ${lng.toFixed(4)}`;
+                    
+                    state.appData.senseExpressionSpace = { lat, lng, address };
+                } catch (error) {
+                    state.appData.senseExpressionSpace = { lat, lng, address: `${lat.toFixed(4)}, ${lng.toFixed(4)}` };
+                }
+                
+                render();
+                setTimeout(() => {
+                    initSpaceMap();
+                }, 100);
+            });
+        }
+
+        function initSpaceDetailMap() {
+            const detailMapContainer = document.getElementById('space-detail-map');
+            if (!detailMapContainer || !state.appData.senseExpressionSpace) return;
+            
+            // 기존 상세 지도 제거
+            if (spaceDetailMap) {
+                spaceDetailMap.remove();
+                spaceDetailMap = null;
+            }
+            
+            const { lat, lng } = state.appData.senseExpressionSpace;
+            
+            // 확대된 상세 지도 (줌 레벨 18로 매우 확대)
+            spaceDetailMap = L.map('space-detail-map').setView([lat, lng], 18);
+            
+            L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+                attribution: '© OpenStreetMap contributors'
+            }).addTo(spaceDetailMap);
+            
+            // 마커 추가
+            L.marker([lat, lng], {
+                icon: L.icon({
+                    iconUrl: 'https://raw.githubusercontent.com/pointhi/leaflet-color-markers/master/img/marker-icon-red.png',
+                    shadowUrl: 'https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/images/marker-shadow.png',
+                    iconSize: [25, 41],
+                    iconAnchor: [12, 41],
+                    popupAnchor: [1, -34],
+                    shadowSize: [41, 41]
+                })
+            }).addTo(spaceDetailMap);
+            
+            // 원형 반경 표시 (100m 반경)
+            L.circle([lat, lng], {
+                color: '#3388ff',
+                fillColor: '#3388ff',
+                fillOpacity: 0.2,
+                radius: 100
+            }).addTo(spaceDetailMap);
+        }
+
+        function clearSpaceSelection() {
+            state.appData.senseExpressionSpace = null;
+            if (spaceMap) {
+                spaceMap.remove();
+                spaceMap = null;
+            }
+            if (spaceDetailMap) {
+                spaceDetailMap.remove();
+                spaceDetailMap = null;
+            }
+            spaceMarker = null;
+            render();
+        }
+
+        // =========================
+        // 도형/패턴 그리기 기능
+        // =========================
+        let patternCanvas = null;
+        let patternCtx = null;
+        let isDrawing = false;
+        let currentShape = null;
+        let startX = 0, startY = 0;
+
+        function initPatternCanvas() {
+            const canvas = document.getElementById('pattern-canvas');
+            if (!canvas) return;
+            
+            // 기존 이벤트 리스너 제거 후 재등록
+            if (patternCanvas && patternCanvas !== canvas) {
+                patternCanvas.removeEventListener('mousedown', startDrawing);
+                patternCanvas.removeEventListener('mousemove', draw);
+                patternCanvas.removeEventListener('mouseup', stopDrawing);
+                patternCanvas.removeEventListener('mouseout', stopDrawing);
+            }
+            
+            patternCanvas = canvas;
+            patternCtx = canvas.getContext('2d');
+            
+            // 기존 이미지가 있으면 로드
+            if (state.appData.senseExpressionPattern) {
+                const img = new Image();
+                img.onload = () => {
+                    patternCtx.clearRect(0, 0, canvas.width, canvas.height);
+                    patternCtx.drawImage(img, 0, 0);
+                };
+                img.src = state.appData.senseExpressionPattern;
+            }
+            
+            // 마우스 이벤트 (중복 방지)
+            canvas.removeEventListener('mousedown', startDrawing);
+            canvas.removeEventListener('mousemove', draw);
+            canvas.removeEventListener('mouseup', stopDrawing);
+            canvas.removeEventListener('mouseout', stopDrawing);
+            
+            canvas.addEventListener('mousedown', startDrawing);
+            canvas.addEventListener('mousemove', draw);
+            canvas.addEventListener('mouseup', stopDrawing);
+            canvas.addEventListener('mouseout', stopDrawing);
+        }
+
+        function editPatternDrawing() {
+            state.appData.senseExpressionPattern = null;
+            render();
+            setTimeout(() => {
+                initPatternCanvas();
+            }, 100);
+        }
+
+        let savedImageData = null;
+
+        function startDrawing(e) {
+            if (!currentShape) return;
+            
+            isDrawing = true;
+            const rect = patternCanvas.getBoundingClientRect();
+            startX = e.clientX - rect.left;
+            startY = e.clientY - rect.top;
+            
+            // 현재 캔버스 상태 저장 (도형 미리보기용)
+            savedImageData = patternCtx.getImageData(0, 0, patternCanvas.width, patternCanvas.height);
+            
+            // 자유 그리기는 시작점 설정
+            if (currentShape === 'free') {
+                patternCtx.beginPath();
+                patternCtx.moveTo(startX, startY);
+            }
+        }
+
+        function draw(e) {
+            if (!isDrawing || !currentShape) return;
+            
+            const rect = patternCanvas.getBoundingClientRect();
+            const currentX = e.clientX - rect.left;
+            const currentY = e.clientY - rect.top;
+            
+            if (currentShape === 'free') {
+                // 자유 그리기: 실시간으로 선 그리기
+                patternCtx.lineWidth = 3;
+                patternCtx.lineCap = 'round';
+                patternCtx.strokeStyle = document.getElementById('pattern-color')?.value || '#3B82F6';
+                patternCtx.lineTo(currentX, currentY);
+                patternCtx.stroke();
+                patternCtx.beginPath();
+                patternCtx.moveTo(currentX, currentY);
+            } else {
+                // 도형 그리기: 미리보기 (반투명)
+                patternCtx.putImageData(savedImageData, 0, 0);
+                
+                patternCtx.fillStyle = document.getElementById('pattern-color')?.value || '#3B82F6';
+                patternCtx.strokeStyle = document.getElementById('pattern-color')?.value || '#3B82F6';
+                patternCtx.lineWidth = 2;
+                patternCtx.globalAlpha = 0.5;
+                
+                if (currentShape === 'circle') {
+                    const radius = Math.sqrt(Math.pow(currentX - startX, 2) + Math.pow(currentY - startY, 2));
+                    patternCtx.beginPath();
+                    patternCtx.arc(startX, startY, radius, 0, 2 * Math.PI);
+                    patternCtx.fill();
+                    patternCtx.stroke();
+                } else if (currentShape === 'rect') {
+                    patternCtx.fillRect(startX, startY, currentX - startX, currentY - startY);
+                    patternCtx.strokeRect(startX, startY, currentX - startX, currentY - startY);
+                } else if (currentShape === 'triangle') {
+                    patternCtx.beginPath();
+                    patternCtx.moveTo(startX, startY);
+                    patternCtx.lineTo(currentX, currentY);
+                    patternCtx.lineTo(startX * 2 - currentX, currentY);
+                    patternCtx.closePath();
+                    patternCtx.fill();
+                    patternCtx.stroke();
+                }
+                
+                patternCtx.globalAlpha = 1.0;
+            }
+        }
+
+        function stopDrawing(e) {
+            if (!isDrawing || !currentShape) {
+                isDrawing = false;
+                return;
+            }
+            
+            const rect = patternCanvas.getBoundingClientRect();
+            const endX = e.clientX - rect.left;
+            const endY = e.clientY - rect.top;
+            
+            // 자유 그리기는 이미 그려졌으므로 여기서는 도형만 처리
+            if (currentShape !== 'free') {
+                // 저장된 이미지 복원 후 최종 도형 그리기
+                patternCtx.putImageData(savedImageData, 0, 0);
+                
+                patternCtx.fillStyle = document.getElementById('pattern-color')?.value || '#3B82F6';
+                patternCtx.strokeStyle = document.getElementById('pattern-color')?.value || '#3B82F6';
+                patternCtx.lineWidth = 2;
+                patternCtx.globalAlpha = 1.0;
+                
+                if (currentShape === 'circle') {
+                    const radius = Math.sqrt(Math.pow(endX - startX, 2) + Math.pow(endY - startY, 2));
+                    patternCtx.beginPath();
+                    patternCtx.arc(startX, startY, radius, 0, 2 * Math.PI);
+                    patternCtx.fill();
+                    patternCtx.stroke();
+                } else if (currentShape === 'rect') {
+                    patternCtx.fillRect(startX, startY, endX - startX, endY - startY);
+                    patternCtx.strokeRect(startX, startY, endX - startX, endY - startY);
+                } else if (currentShape === 'triangle') {
+                    patternCtx.beginPath();
+                    patternCtx.moveTo(startX, startY);
+                    patternCtx.lineTo(endX, endY);
+                    patternCtx.lineTo(startX * 2 - endX, endY);
+                    patternCtx.closePath();
+                    patternCtx.fill();
+                    patternCtx.stroke();
+                }
+            }
+            
+            savedImageData = null;
+            isDrawing = false;
+        }
+
+        function drawShape(shape) {
+            currentShape = shape;
+            isDrawing = false;
+        }
+
+        function setDrawingMode(mode) {
+            currentShape = mode;
+            isDrawing = false;
+        }
+
+        function clearPatternCanvas() {
+            if (patternCtx) {
+                patternCtx.clearRect(0, 0, patternCanvas.width, patternCanvas.height);
+            }
+        }
+
+        function savePatternDrawing() {
+            if (!patternCanvas) return;
+            const imageData = patternCanvas.toDataURL('image/png');
+            state.appData.senseExpressionPattern = imageData;
+            render();
+        }
+
+        function clearPatternDrawing() {
+            state.appData.senseExpressionPattern = null;
+            patternCanvas = null;
+            patternCtx = null;
+            currentShape = null;
+            isDrawing = false;
             render();
         }
 

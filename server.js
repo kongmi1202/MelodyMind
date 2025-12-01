@@ -41,15 +41,51 @@ async function getYouTubeVideoInfo(videoUrl) {
         
         // YouTube Data API 호출
         const youtubeApiUrl = `https://www.googleapis.com/youtube/v3/videos?id=${videoId}&part=snippet,contentDetails&key=${youtubeApiKey}`;
+        console.log('🌐 YouTube API 호출:', `videoId=${videoId}`);
+        
         const response = await fetch(youtubeApiUrl);
+        console.log('📡 YouTube API 응답 상태:', response.status, response.statusText);
         
         if (!response.ok) {
-            console.error('YouTube API Error:', response.status, response.statusText);
+            const errorData = await response.json().catch(() => ({}));
+            const errorMessage = errorData.error?.message || errorData.message || response.statusText;
+            const errorReason = errorData.error?.reason || '';
+            
+            console.error('❌ YouTube API 에러 상세:', {
+                status: response.status,
+                statusText: response.statusText,
+                reason: errorReason,
+                message: errorMessage,
+                fullError: errorData
+            });
+            
+            // 할당량 초과 에러 확인
+            if (response.status === 403) {
+                if (errorReason === 'quotaExceeded' || errorReason === 'dailyLimitExceeded' || 
+                    errorMessage.includes('quota') || errorMessage.includes('quotaExceeded') || 
+                    errorMessage.includes('dailyLimitExceeded') || errorMessage.includes('quota')) {
+                    console.error('❌ YouTube API 할당량 초과:', errorMessage);
+                    console.error('💡 Google Cloud Console에서 할당량을 확인하거나, API 키를 추가로 생성하세요.');
+                    return { error: 'quotaExceeded', message: errorMessage };
+                } else if (errorMessage.includes('API key not valid') || errorMessage.includes('keyInvalid') || errorReason === 'keyInvalid') {
+                    console.error('❌ YouTube API 키가 유효하지 않습니다:', errorMessage);
+                } else {
+                    console.error('❌ YouTube API 접근 거부 (403):', errorMessage, 'Reason:', errorReason);
+                }
+            } else {
+                console.error('❌ YouTube API Error:', response.status, response.statusText, errorMessage);
+            }
             return null;
         }
         
         const data = await response.json();
+        console.log('📦 YouTube API 응답 데이터:', {
+            itemsCount: data.items?.length || 0,
+            hasItems: !!data.items && data.items.length > 0
+        });
+        
         if (!data.items || data.items.length === 0) {
+            console.warn('⚠️ YouTube 동영상을 찾을 수 없습니다. (videoId:', videoId, ')');
             return null;
         }
         
@@ -101,16 +137,39 @@ app.post('/api/analyze', async (req, res) => {
         
         // YouTube URL이 제공된 경우, 동영상 정보를 먼저 가져옴
         let youtubeInfo = null;
+        let youtubeInfoError = null;
+        let youtubeQuotaExceeded = false;
         if (youtubeUrl) {
-            youtubeInfo = await getYouTubeVideoInfo(youtubeUrl);
-            if (youtubeInfo) {
-                console.log('📺 YouTube 정보:', youtubeInfo.title);
+            console.log('🔍 YouTube URL 수신:', youtubeUrl);
+            const result = await getYouTubeVideoInfo(youtubeUrl);
+            console.log('📥 YouTube API 응답:', result ? '성공' : '실패', result);
+            
+            if (result && typeof result === 'object' && result.error === 'quotaExceeded') {
+                youtubeQuotaExceeded = true;
+                youtubeInfoError = 'YouTube API 할당량이 초과되었습니다. Google Cloud Console에서 할당량을 확인하세요.';
+                console.error('❌', youtubeInfoError);
+            } else if (result && result.title) {
+                youtubeInfo = result;
+                console.log('✅ YouTube 정보 성공적으로 가져옴:', youtubeInfo.title);
+                console.log('   - 채널:', youtubeInfo.channelTitle);
+                console.log('   - 태그:', youtubeInfo.tags?.length || 0, '개');
+            } else {
+                const youtubeApiKey = process.env.YOUTUBE_API_KEY || process.env.GOOGLE_API_KEY;
+                if (!youtubeApiKey) {
+                    youtubeInfoError = 'YouTube API Key가 설정되지 않았습니다.';
+                    console.warn('⚠️', youtubeInfoError);
+                } else {
+                    youtubeInfoError = 'YouTube 동영상 정보를 가져올 수 없습니다. (API 호출 실패 또는 잘못된 URL)';
+                    console.warn('⚠️', youtubeInfoError, 'URL:', youtubeUrl);
+                }
             }
+        } else {
+            console.log('ℹ️ YouTube URL이 제공되지 않았습니다.');
         }
-        
+
         // VITE_OPENAI_API_KEY 또는 OPENAI_API_KEY 둘 다 지원
         const apiKey = process.env.VITE_OPENAI_API_KEY || process.env.OPENAI_API_KEY;
-        
+
         if (!apiKey) {
             return res.status(500).json({ error: 'OPENAI_API_KEY가 .env 파일에 설정되지 않았습니다.' });
         }
@@ -119,7 +178,9 @@ app.post('/api/analyze', async (req, res) => {
 
         // YouTube 정보가 있으면 userPrompt에 구조화하여 추가
         let enhancedUserPrompt = userPrompt;
+        console.log('📝 OpenAI 프롬프트 준비 중...');
         if (youtubeInfo) {
+            console.log('✅ YouTube 정보를 OpenAI 프롬프트에 포함');
             enhancedUserPrompt = `
 --- [YouTube Data API로 가져온 동영상 정보 (참고용)] ---
 ⚠️ **중요**: 아래 YouTube 정보는 **참고 자료**일 뿐입니다. 이 정보를 그대로 믿지 말고, 반드시 자신의 학습된 지식과 검색 능력을 활용하여 **정확한 악곡 정보를 확정**하세요.
@@ -140,12 +201,39 @@ ${youtubeInfo.description}
 --- [원본 사용자 입력] ---
 ${userPrompt}
             `;
+            console.log('📋 YouTube 정보 포함된 프롬프트 길이:', enhancedUserPrompt.length, '자');
+        } else if (youtubeUrl && youtubeInfoError) {
+            console.log('⚠️ YouTube 정보 없이 OpenAI 프롬프트 전송 (에러:', youtubeInfoError, ')');
+            // YouTube 정보를 가져올 수 없을 때
+            const quotaMessage = youtubeQuotaExceeded 
+                ? '\n\n⚠️ **참고**: YouTube API 할당량이 초과되어 동영상 정보를 가져올 수 없었습니다. 학생이 입력한 정보를 기반으로 평가하세요.'
+                : '';
+            
+            enhancedUserPrompt = `
+--- [YouTube 정보 가져오기 실패] ---
+⚠️ **중요**: YouTube 동영상 정보를 가져올 수 없었습니다. (${youtubeInfoError})${quotaMessage}
+따라서 학생이 입력한 악곡 정보를 기반으로, **자신의 학습된 지식과 검색 능력을 활용**하여 해당 악곡의 **정확한 정보**를 확정하세요.
+
+**필수 작업**:
+1. 학생이 입력한 악곡 제목, 작곡가, 연주자 정보를 **단서**로 사용하세요.
+2. **이 단서를 바탕으로 자신의 학습된 지식과 검색 능력을 활용**하여 해당 악곡의 **정확한 정보**를 확정하세요.
+3. 확정한 정확한 정보를 기준으로 학생의 감상문을 평가하세요.
+4. **"실제 악곡: 확인 불가"라고 표시하지 마세요.** 학습된 지식을 활용하여 가능한 한 정확한 정보를 확정하세요.
+
+--- [원본 사용자 입력] ---
+${userPrompt}
+            `;
         }
 
         const messages = [
             { role: 'system', content: systemInstruction },
             { role: 'user', content: enhancedUserPrompt }
         ];
+        
+        console.log('🤖 OpenAI API 호출 준비 완료');
+        console.log('   - System instruction 길이:', systemInstruction.length, '자');
+        console.log('   - User prompt 길이:', enhancedUserPrompt.length, '자');
+        console.log('   - YouTube 정보 포함:', youtubeInfo ? '✅' : '❌');
 
         const payload = {
             model: 'gpt-4o', // 또는 gpt-4, gpt-3.5-turbo
@@ -178,7 +266,9 @@ ${userPrompt}
                 const aiResponse = result.choices?.[0]?.message?.content || "AI 분석에 실패했습니다.";
                 
                 // 디버깅: AI 응답 로깅
-                console.log('OpenAI API Response:', aiResponse.substring(0, 500));
+                console.log('✅ OpenAI API 호출 성공');
+                console.log('   - 응답 길이:', aiResponse.length, '자');
+                console.log('   - 응답 미리보기:', aiResponse.substring(0, 200), '...');
                 
                 return res.json({ result: aiResponse });
             } catch (error) {
@@ -210,6 +300,8 @@ app.post('/api/google-forms', async (req, res) => {
 
         // Entry point 매핑
         const mappedData = {
+            'entry.514455809': formData.studentId || '', // 학번
+            'entry.1927164281': formData.studentName || '', // 이름
             'entry.759135577': formData.url || '', // 유튜브 링크
             'entry.651308062': `${formData.title || ''} / ${formData.composer || ''}`, // 악곡 제목 / 작곡
             'entry.1693298501': formData.artist || '', // 가수 / 연주자 이름
@@ -294,6 +386,8 @@ app.post('/api/google-forms', async (req, res) => {
             
             const newStudentData = {
                 userId: userId,
+                studentId: formData.studentId || '',
+                studentName: formData.studentName || '',
                 timestamp: timestamp,
                 // 악곡 정보
                 title: formData.title || '',

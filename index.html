@@ -37,9 +37,11 @@
         // Global State Management
         // =========================
         const state = {
-            page: 1,
+            page: 0,
             loading: false,
             userId: "Guest",
+            studentId: '',
+            studentName: '',
             db: null,
             appData: {
                 url: '', title: '', composer: '', artist: '',
@@ -165,6 +167,8 @@
             try {
                 const googleFormsData = {
                     userId: state.userId,
+                    studentId: state.studentId,
+                    studentName: state.studentName,
                     timestamp: new Date().toISOString(),
                     // 악곡 정보
                     title: state.appData.title,
@@ -233,6 +237,21 @@
 
         function getAppreciationDataForAI() {
             const d = state.appData;
+            const natureImages = [
+                { id: 'storm', name: '폭풍', emoji: '⛈️' },
+                { id: 'lightning', name: '번개', emoji: '⚡' },
+                { id: 'rain', name: '비', emoji: '🌧️' },
+                { id: 'snow', name: '눈', emoji: '❄️' },
+                { id: 'wind', name: '바람', emoji: '💨' },
+                { id: 'wave', name: '파도', emoji: '🌊' },
+                { id: 'fire', name: '불', emoji: '🔥' },
+                { id: 'cloud', name: '구름', emoji: '☁️' },
+                { id: 'sunset', name: '일몰', emoji: '🌅' },
+                { id: 'moon', name: '달', emoji: '🌙' },
+                { id: 'star', name: '별', emoji: '⭐' },
+                { id: 'ocean', name: '바다', emoji: '🌊' }
+            ];
+            
             return `
 --- 악곡 정보 ---
 제목: ${d.title || '미입력'}, 작곡가: ${d.composer || '미입력'}, 연주자: ${d.artist || '미입력'}, 장르: ${d.musicGenre || '미입력'}
@@ -246,7 +265,9 @@
     const color = COLOR_PALETTE.find(p => p.value === c);
     return color ? `${color.name}(${color.description})` : c;
 }).join(', ') : '없음'}
-다른 방식 표현: ${d.senseExpressionType.length > 0 ? d.senseExpressionType.map(t => {
+
+--- 1단계: 다른 방식으로 표현하기 (다교과 융합 표현) ---
+${d.senseExpressionType.length > 0 ? d.senseExpressionType.map(t => {
     const typeNames = {
         'poetry': '📝 시적 표현/문구 (국어)',
         'movement': '💃 움직임/동작 (체육/무용)',
@@ -254,14 +275,27 @@
         'space': '🏞️ 공간/장소 (사회/지리)',
         'pattern': '🔷 도형/패턴 (수학)'
     };
-    return typeNames[t] || t;
-}).join(', ') : '없음'}
-다른 방식 표현 내용: ${d.senseExpressionText || '없음'}
-움직임 기록: ${d.senseExpressionMovement ? '이미지 캡처됨' : '없음'}
-공간 선택: ${d.senseExpressionSpace ? `${d.senseExpressionSpace.address || `${d.senseExpressionSpace.lat}, ${d.senseExpressionSpace.lng}`}` : '없음'}
-도형/패턴: ${d.senseExpressionPattern ? '그림 생성됨' : '없음'}
-자연 현상: ${d.senseExpressionNature && d.senseExpressionNature.length > 0 ? d.senseExpressionNature.join(', ') : '없음'}
-자연 현상: ${d.senseExpressionNature && d.senseExpressionNature.length > 0 ? d.senseExpressionNature.join(', ') : '없음'}
+    let result = typeNames[t] || t;
+    
+    if (t === 'poetry' && d.senseExpressionText) {
+        result += `: "${d.senseExpressionText}"`;
+    } else if (t === 'movement' && d.senseExpressionMovement) {
+        result += `: 움직임/동작을 카메라로 캡처하여 표현함 (체육/무용)`;
+    } else if (t === 'space' && d.senseExpressionSpace) {
+        const space = d.senseExpressionSpace;
+        result += `: ${space.address || `${space.lat.toFixed(4)}, ${space.lng.toFixed(4)}`} (사회/지리)`;
+    } else if (t === 'pattern' && d.senseExpressionPattern) {
+        result += `: 도형/패턴을 그림으로 그려서 표현함 (수학)`;
+    } else if (t === 'nature' && d.senseExpressionNature && d.senseExpressionNature.length > 0) {
+        const natureNames = d.senseExpressionNature.map(id => {
+            const nature = natureImages.find(img => img.id === id);
+            return nature ? `${nature.emoji} ${nature.name}` : id;
+        }).join(', ');
+        result += `: ${natureNames} (과학)`;
+    }
+    
+    return result;
+}).join('\n') : '없음'}
 
 --- 2단계: 기술 및 분석 ---
 2-1. 소리 및 음색 (Timbre/Dynamics): ${d.techSound || '미입력'}
@@ -419,7 +453,9 @@
 
 5. badPoints: 
    - **최우선**: 악곡 정보 불일치가 있으면 반드시 첫 번째 항목으로 지적하세요.
+   - **중요**: YouTube 정보를 가져올 수 없었더라도, "실제 악곡: 확인 불가"라고 표시하지 마세요. 학생이 입력한 정보를 기반으로 학습된 지식을 활용하여 가능한 한 정확한 악곡 정보를 확정하고 평가하세요.
    - 형식: "⚠️ 심각한 불일치 감지: 유튜브 링크의 실제 악곡은 [실제 악곡 정보]인데, 입력하신 정보는 [학생 입력 정보]입니다. 다른 곡에 대한 감상을 작성하신 것 같습니다."
+   - **YouTube 정보가 없는 경우**: "학생이 입력한 악곡 정보([학생 입력 정보])를 기반으로 학습된 지식을 활용하여 평가했습니다." 형식으로 작성하세요.
    - **중요**: 1단계 감각적 감상과 2단계 분석적 감상이 연결되지 않은 경우를 지적하세요.
    - 예: "1단계에서 '느리다'고 느꼈는데, 2단계에서는 '템포가 빠르다'고 분석하셨습니다. 1단계에서 느낀 감각의 근거를 찾는 것이 2단계의 목적입니다. 다시 들어보시고 1단계에서 느낀 감각의 근거가 되는 분석을 해보세요."
    - 그 다음 검색된 객관적 정보와 불일치하는 부분을 구체적으로 지적
@@ -428,6 +464,7 @@
 
 6. structuredQuestion: 
    - **악곡 정보 불일치 시**: "유튜브 링크의 실제 악곡([실제 악곡])과 입력하신 정보([학생 입력])가 다릅니다. 올바른 악곡 정보를 확인하고 해당 곡에 대해 다시 감상해보시겠어요?"
+   - **YouTube 정보가 없는 경우**: "확인 불가"라고 표시하지 말고, 학생이 입력한 정보를 기반으로 학습된 지식을 활용하여 구체적인 질문을 제시하세요.
    - **1단계와 2단계 연결성 부족 시**: "1단계에서 [1단계 감각적 감상]을 느꼈는데, 2단계에서는 [2단계 분석]이라고 하셨습니다. 1단계에서 느낀 감각의 근거가 되는 분석을 찾아보시겠어요? 예를 들어, 1단계에서 느리다고 느꼈다면, 2단계에서는 템포가 어떻게 되어있는지 분석해보세요."
    - **일치하는 경우**: 학생이 틀리게 분석한 부분과 관련된 **검색된 객관적 정보의 일부**를 힌트로 활용하여 질문을 구체화
    - 예: "당신은 곡의 템포가 느리다고 했으나, 실제 이 곡은 낭만주의 시대의 '매우 빠르다(Presto)'로 연주됩니다. 리듬 패턴에 대한 기술을 보완할 수 있을까요? 특히 셋잇단음표의 반복 패턴이 어떻게 긴장감을 조성하는지 다시 들어보시겠어요?"
@@ -437,6 +474,12 @@
    - **핵심 임무**: 학생이 1~3단계에서 입력한 모든 항목을 **'학생의 통합 감상문 초안'**이라는 이름으로 **5단계 비평 구조에 맞춰 자연스러운 글 형태**로 통합하여 생성하세요.
    - **작성 방법**:
      * 학생이 입력한 내용(1단계: 반응, 2단계: 기술/분석, 3단계: 해석/평가)을 모두 포함하세요.
+     * **중요**: 1단계의 "다른 방식으로 표현하기"에서 학생이 표현한 내용도 반드시 포함하세요.
+       - 시적 표현/문구(국어): 학생이 입력한 시적 표현 텍스트를 감상문에 자연스럽게 포함
+       - 움직임/동작(체육/무용): 학생이 카메라로 캡처한 움직임 표현이 있다는 것을 언급
+       - 자연 현상(과학): 학생이 선택한 자연 현상(예: 폭풍, 번개 등)을 감상문에 포함
+       - 공간/장소(사회/지리): 학생이 선택한 위치 정보를 감상문에 포함
+       - 도형/패턴(수학): 학생이 그린 도형/패턴 그림이 있다는 것을 언급
      * 5단계 비평 구조(반응-기술-분석-해석-평가)에 맞춰 자연스럽게 연결하세요.
      * 각 단계의 내용을 문단으로 구성하여 읽기 좋은 감상문 형태로 작성하세요.
      * 문장을 다듬고 연결하여 완성도 높은 초안을 만들되, 학생의 원래 의도와 내용은 그대로 유지하세요.
@@ -541,22 +584,43 @@
 
 3. **작성 방법**:
    - 학생의 1단계(반응), 2단계(기술/분석), 3단계(해석/평가) 입력을 5단계 비평 구조에 맞게 재구성
+   - **중요**: 1단계의 "다른 방식으로 표현하기"에서 학생이 표현한 내용도 반드시 포함하세요.
+     - 시적 표현/문구(국어): 학생이 입력한 시적 표현 텍스트를 감상문에 자연스럽게 포함
+     - 움직임/동작(체육/무용): 학생이 카메라로 캡처한 움직임 표현이 있다는 것을 언급
+     - 자연 현상(과학): 학생이 선택한 자연 현상(예: 폭풍, 번개 등)을 감상문에 포함
+     - 공간/장소(사회/지리): 학생이 선택한 위치 정보를 감상문에 포함
+     - 도형/패턴(수학): 학생이 그린 도형/패턴 그림이 있다는 것을 언급
    - 학생의 보완 내용을 적절한 위치에 통합
    - 문장을 자연스럽게 다듬되, 학생의 원래 의도와 내용은 그대로 유지
 
 --- 생성 항목 ---
 1. finalAppreciation: **학생이 입력한 내용만**을 사용하여 작성한 최종 감상문 텍스트
    - 학생의 모든 입력(1~3단계 + 보완 내용)을 자연스럽게 연결하여 하나의 완성된 감상문으로 작성
+   - 1단계의 "다른 방식으로 표현하기" 내용도 반드시 포함하세요
    - 학생이 입력하지 않은 내용은 절대 추가하지 마세요
-2. performanceStrategy: 연주 영역 활용 전략 (해당 악곡의 특징을 고려한 구체적 전략)
-3. appreciationStrategy: 감상 영역 활용 전략 (해당 악곡의 형식, 시대적 배경 등을 활용한 전략)
-4. compositionStrategy: 창작 영역 활용 전략 (해당 악곡의 작곡 기법을 참고한 전략)
 
-**참고**: 모범 감상문(modelAppreciation)은 이미 generateFeedback 단계에서 생성되었으므로, 여기서는 학생의 최종 감상문만 생성하면 됩니다.
+2. performanceStrategy: 연주 영역 활용 전략
+   - **중요**: 학생이 입력한 악곡 정보가 아닌, **AI가 분석하여 확정한 정확한 악곡 정보**를 기반으로 작성하세요.
+   - 해당 악곡의 정확한 작곡가, 시대, 형식, 조성, 템포, 특징 등을 고려한 구체적 연주 전략
+   - 예: "이 곡은 [확정된 작곡가]의 [확정된 형식]로, [확정된 시대]의 특징인 [특징]을 연주할 때 주의해야 합니다..."
+
+3. appreciationStrategy: 감상 영역 활용 전략
+   - **중요**: 학생이 입력한 악곡 정보가 아닌, **AI가 분석하여 확정한 정확한 악곡 정보**를 기반으로 작성하세요.
+   - 해당 악곡의 정확한 형식, 시대적 배경, 작곡가의 스타일 등을 활용한 감상 전략
+   - 예: "이 곡은 [확정된 형식]로, [확정된 시대]의 [특징]을 이해하면 더 깊이 감상할 수 있습니다..."
+
+4. compositionStrategy: 창작 영역 활용 전략
+   - **중요**: 학생이 입력한 악곡 정보가 아닌, **AI가 분석하여 확정한 정확한 악곡 정보**를 기반으로 작성하세요.
+   - 해당 악곡의 정확한 작곡 기법, 화성 진행, 리듬 패턴 등을 참고한 창작 전략
+   - 예: "이 곡의 [확정된 작곡 기법]을 참고하여, [특징]을 활용한 창작 활동을 시도해볼 수 있습니다..."
+
+**참고**: 
+- 모범 감상문(modelAppreciation)은 이미 generateFeedback 단계에서 생성되었으므로, 여기서는 학생의 최종 감상문만 생성하면 됩니다.
+- **전략 생성 시**: 반드시 자신이 generateFeedback 단계에서 확정한 정확한 악곡 정보(작곡가, 시대, 형식, 조성, 템포 등)를 활용하세요. 학생이 입력한 정보가 잘못되었을 수 있으므로, AI가 분석하여 확정한 정보를 사용해야 합니다.
             `;
 
             const userPrompt = `
---- 학생이 입력한 1~3단계 통합 감상 데이터 (반드시 이 내용만 사용) ---
+--- 학생이 입력한 1~3단계 통합 감상 데이터 (finalAppreciation 작성 시에만 사용) ---
 ${appreciationData}
 
 --- AI 피드백 (참고용) ---
@@ -564,16 +628,27 @@ ${appreciationData}
 보완점: ${state.appData.feedback.badPoints}
 질문: ${state.appData.feedback.structuredQuestion}
 
---- 학생이 직접 입력한 보완된 감상 내용 (반드시 포함) ---
+--- AI가 생성한 모범 감상문 (악곡 정보 참고용) ---
+${state.appData.feedback.modelAppreciation || '모범 감상문이 없습니다.'}
+
+**중요**: 위 모범 감상문은 AI가 정확한 악곡 정보를 기반으로 작성한 것입니다. 이 모범 감상문에서 사용된 정확한 악곡 정보(작곡가, 시대, 형식, 조성, 템포 등)를 참고하여 전략을 생성하세요.
+
+--- 학생이 직접 입력한 보완된 감상 내용 (finalAppreciation에 반드시 포함) ---
 ${finalInput || '학생이 보완 내용을 입력하지 않았습니다.'}
 
 **중요 지시사항**:
-1. finalAppreciation은 위의 "1~3단계 통합 감상 데이터"와 "보완된 감상 내용"에 있는 학생의 입력 내용만을 사용하여 작성하세요.
-2. 학생이 입력하지 않은 내용은 절대 추가하지 마세요.
+1. **finalAppreciation**: 위의 "1~3단계 통합 감상 데이터"와 "보완된 감상 내용"에 있는 학생의 입력 내용만을 사용하여 작성하세요. 학생이 입력하지 않은 내용은 절대 추가하지 마세요.
+
+2. **전략 생성 (performanceStrategy, appreciationStrategy, compositionStrategy)**:
+   - 학생이 입력한 악곡 정보는 참고만 하고, **반드시 AI가 모범 감상문에서 사용한 정확한 악곡 정보**를 기반으로 작성하세요.
+   - 모범 감상문에서 언급된 작곡가, 시대, 형식, 조성, 템포, 작곡 기법 등을 활용하여 구체적이고 실용적인 전략을 제시하세요.
+   - 학생이 입력한 정보가 잘못되었을 수 있으므로, AI가 확정한 정확한 정보를 사용해야 합니다.
+
 3. 학생의 입력 내용을 자연스럽게 연결하고 문장을 다듬되, 학생의 원래 의도와 내용은 그대로 유지하세요.
+
 4. 학생이 "미입력"이라고 표시된 항목은 해당 부분을 간략하게 처리하거나 생략하세요.
 
-위 학생 입력 데이터만을 사용하여 최종 감상문과 미래 활용 전략을 생성해주세요.
+위 지시사항에 따라 최종 감상문과 미래 활용 전략을 생성해주세요.
             `;
 
             try {
@@ -590,6 +665,8 @@ ${finalInput || '학생이 보완 내용을 입력하지 않았습니다.'}
                 // Google Forms로 데이터 전송
                 const googleFormsData = {
                     userId: state.userId,
+                    studentId: state.studentId,
+                    studentName: state.studentName,
                     timestamp: new Date().toISOString(),
                     // 악곡 정보
                     title: state.appData.title,
@@ -730,6 +807,17 @@ ${finalInput || '학생이 보완 내용을 입력하지 않았습니다.'}
             if (state.loading) return;
 
             switch (state.page) {
+                case 0:
+                    // 학번과 이름 입력 확인
+                    if (!state.studentId.trim() || !state.studentName.trim()) {
+                        showModal("학번과 이름을 모두 입력해주세요.");
+                        return;
+                    }
+                    // userId 생성 (학번과 이름 포함)
+                    state.userId = `user_${Date.now()}_${state.studentId}_${state.studentName}`;
+                    state.page = 1;
+                    render();
+                    break;
                 case 1:
                     if (!state.appData.title || !state.appData.url || state.appData.senseKeywords.length === 0) {
                         showModal("악곡 제목, 유튜브 링크, 감성 키워드는 필수 입력 항목입니다.");
@@ -789,7 +877,7 @@ ${finalInput || '학생이 보완 내용을 입력하지 않았습니다.'}
                     <h1 class="text-2xl font-bold flex items-center">
                         ${icons.Music(24)} <span class="ml-2">소리 성찰실 (MelodyMind)</span>
                     </h1>
-                    <span class="text-sm opacity-75">사용자 ID: ${state.userId.substring(0, 8)}...</span>
+                    <span class="text-sm opacity-75">${state.page === 0 ? '학생 정보 입력' : `사용자 ID: ${state.userId.substring(0, 8)}...`}</span>
                 </header>
             `;
         }
@@ -805,6 +893,50 @@ ${finalInput || '학생이 보완 내용을 입력하지 않았습니다.'}
                 steps += `<div class="flex-1 text-center mx-1 py-2 rounded-full font-semibold transition-all duration-300 ${activeClass}">${i}단계</div>`;
             }
             return `<div class="flex justify-between items-center my-4">${steps}</div>`;
+        }
+
+        // 학번 입력 필터링 (숫자만)
+        function filterStudentId(value) {
+            return value.replace(/[^0-9]/g, '');
+        }
+
+        // 이름 입력 필터링 (한글만)
+        function filterStudentName(value) {
+            return value.replace(/[^가-힣\s]/g, '');
+        }
+
+        function renderPage0() {
+            return `
+                <div class="space-y-6">
+                    <h2 class="text-xl font-semibold text-gray-700">학생 정보 입력</h2>
+                    
+                    <div class="bg-white p-6 rounded-lg shadow-md border border-indigo-100">
+                        <div class="space-y-4">
+                            <div>
+                                <label class="block text-sm font-medium text-gray-700 mb-2">학번 (필수)</label>
+                                <input type="text" id="studentId" value="${state.studentId}" 
+                                    oninput="const filtered = filterStudentId(this.value); if (filtered !== this.value) { this.value = filtered; } state.studentId = filtered;" 
+                                    onblur="render();"
+                                    placeholder="예: 2024001" 
+                                    pattern="[0-9]*"
+                                    inputmode="numeric"
+                                    class="w-full p-2 border border-gray-300 rounded-md focus:ring-indigo-500 focus:border-indigo-500" />
+                                <p class="text-xs text-gray-500 mt-1">숫자만 입력 가능합니다.</p>
+                            </div>
+                            
+                            <div>
+                                <label class="block text-sm font-medium text-gray-700 mb-2">이름 (필수)</label>
+                                <input type="text" id="studentName" value="${state.studentName}" 
+                                    oninput="state.studentName = this.value;" 
+                                    onblur="const filtered = filterStudentName(this.value); this.value = filtered; state.studentName = filtered; render();"
+                                    placeholder="예: 홍길동" 
+                                    class="w-full p-2 border border-gray-300 rounded-md focus:ring-indigo-500 focus:border-indigo-500" />
+                                <p class="text-xs text-gray-500 mt-1">한글만 입력 가능합니다. (입력 완료 후 자동으로 필터링됩니다)</p>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            `;
         }
 
         function renderPage1() {
@@ -1948,6 +2080,7 @@ ${finalInput || '학생이 보완 내용을 입력하지 않았습니다.'}
 
         function renderFooter() {
             const buttonText = state.loading ? "AI 분석 중..." : 
+                state.page === 0 ? "다음 단계로 이동" :
                 state.page === 1 || state.page === 2 ? "다음 단계로 이동" :
                 state.page === 3 ? "AI 진단 시작" :
                 state.page === 4 ? "최종 감상문 완성" :
@@ -1994,6 +2127,7 @@ ${finalInput || '학생이 보완 내용을 입력하지 않았습니다.'}
         // =========================
         function render() {
             const pageContent = 
+                state.page === 0 ? renderPage0() :
                 state.page === 1 ? renderPage1() :
                 state.page === 2 ? renderPage2() :
                 state.page === 3 ? renderPage3() :

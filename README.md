@@ -16,7 +16,7 @@
 - OpenAI API Key ([발급 방법](https://platform.openai.com/api-keys))
 - (선택) Google Forms Entry Code
 
-## 🚀 설치 및 실행
+## 🚀 로컬 개발 환경 설정
 
 ### 1. 패키지 설치
 
@@ -32,7 +32,10 @@ npm install
 # OpenAI API Key (필수)
 OPENAI_API_KEY=sk-proj-xxxxxxxxxxxxxxxx
 
-# Google Form URL (선택 - entry code 설정 후 입력)
+# YouTube API Key (선택)
+YOUTUBE_API_KEY=AIzaxxxxxxxxxxxxxxxx
+
+# Google Form URL (선택)
 GOOGLE_FORM_URL=https://docs.google.com/forms/d/e/YOUR_FORM_ID/formResponse
 
 # 서버 포트 (기본값: 3000)
@@ -56,6 +59,30 @@ npm run server
 ```
 http://localhost:3000
 ```
+
+---
+
+## 🌐 프로덕션 배포
+
+로컬에서는 정상 작동하지만 Netlify/Vercel 같은 정적 호스팅에서는 백엔드(`server.js`)가 실행되지 않습니다.
+
+**해결책**: 프론트엔드와 백엔드를 분리하여 배포
+
+📖 **상세 가이드**: [DEPLOYMENT.md](./DEPLOYMENT.md) 참조
+
+### 간단 요약
+
+1. **백엔드 배포** (Render.com 무료)
+   - Render.com에서 Web Service 생성
+   - 환경 변수 설정
+   - 배포 후 URL 받기: `https://melodymind-backend.onrender.com`
+
+2. **프론트엔드 배포** (Netlify 무료)
+   - `index.html`에서 백엔드 URL 수정
+   - Netlify에 GitHub 저장소 연결
+   - 자동 배포
+
+자세한 내용은 [DEPLOYMENT.md](./DEPLOYMENT.md)를 확인하세요.
 
 ## 🔧 Google Forms 연동 설정
 

@@ -868,6 +868,16 @@ ${finalInput || '학생이 보완 내용을 입력하지 않았습니다.'}
         // =========================
         // Navigation & Validation
         // =========================
+        function handlePrevious() {
+            if (state.loading) return;
+            
+            // 이전 페이지로 이동 (입력된 데이터는 state.appData에 유지됨)
+            if (state.page > 0) {
+                state.page--;
+                render();
+            }
+        }
+
         async function handleNext() {
             if (state.loading) return;
 
@@ -2164,13 +2174,24 @@ ${finalInput || '학생이 보완 내용을 입력하지 않았습니다.'}
             const buttonClass = disabled 
                 ? 'bg-gray-400' 
                 : 'bg-indigo-600 hover:bg-indigo-700 shadow-xl';
+            
+            // 이전 버튼 표시 여부 (1, 2, 3단계에서만)
+            const showPrevButton = state.page >= 1 && state.page <= 3;
 
             return `
                 <footer class="fixed bottom-0 left-0 right-0 max-w-4xl mx-auto bg-white p-4 border-t shadow-2xl">
-                    <button onclick="handleNext()" ${disabled ? 'disabled' : ''} 
-                        class="w-full py-3 px-4 rounded-lg font-bold text-white transition-colors duration-300 ${buttonClass}">
-                        ${buttonText}
-                    </button>
+                    <div class="flex gap-3">
+                        ${showPrevButton ? `
+                            <button onclick="handlePrevious()" ${disabled ? 'disabled' : ''} 
+                                class="py-3 px-6 rounded-lg font-bold text-gray-700 bg-gray-200 hover:bg-gray-300 transition-colors duration-300 ${disabled ? 'opacity-50' : ''}">
+                                ← 이전
+                            </button>
+                        ` : ''}
+                        <button onclick="handleNext()" ${disabled ? 'disabled' : ''} 
+                            class="${showPrevButton ? 'flex-1' : 'w-full'} py-3 px-4 rounded-lg font-bold text-white transition-colors duration-300 ${buttonClass}">
+                            ${buttonText}
+                        </button>
+                    </div>
                 </footer>
             `;
         }

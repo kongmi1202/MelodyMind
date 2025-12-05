@@ -309,7 +309,8 @@ app.post('/api/google-forms', async (req, res) => {
             'entry.514455809': formData.studentId || '', // 학번
             'entry.1927164281': formData.studentName || '', // 이름
             'entry.759135577': formData.url || '', // 유튜브 링크
-            'entry.651308062': `${formData.title || ''} / ${formData.composer || ''}`, // 악곡 제목 / 작곡
+            'entry.651308062': formData.title || '', // 악곡 제목
+            'entry.879467409': formData.composer || '', // 작곡가
             'entry.1693298501': formData.artist || '', // 가수 / 연주자 이름
             'entry.1313965673': formData.ensembleType1 || '', // 연주 형태 1 (기악/성악)
             'entry.2019841641': formData.musicGenre || '', // 음악 분류 (장르)

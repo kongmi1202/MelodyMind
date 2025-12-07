@@ -2151,11 +2151,21 @@ ${finalInput || '학생이 보완 내용을 입력하지 않았습니다.'}
                 const isLocal = window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1';
                 let studentsData = [];
                 
-                // 배포 환경: 정적 JSON 파일 직접 사용
-                // 로컬 환경: API 시도 후 실패하면 정적 파일 사용
-                if (!isLocal) {
-                    // 배포 환경에서는 정적 파일 사용
-                    const response = await fetch('/students-data.json', {
+                // API 우선 시도 (로컬/배포 모두)
+                try {
+                    let url = `${API_BASE_URL}/api/students-data`;
+                    const params = new URLSearchParams();
+                    
+                    if (filters.title) params.append('title', filters.title);
+                    if (filters.composer) params.append('composer', filters.composer);
+                    if (filters.limit) params.append('limit', filters.limit);
+                    
+                    if (params.toString()) {
+                        url += '?' + params.toString();
+                    }
+                    
+                    console.log('📡 API 호출 시도:', url);
+                    const response = await fetch(url, {
                         method: 'GET',
                         headers: {
                             'Content-Type': 'application/json'
@@ -2163,57 +2173,35 @@ ${finalInput || '학생이 보완 내용을 입력하지 않았습니다.'}
                         cache: 'no-cache'
                     });
                     
-                    if (!response.ok) {
-                        throw new Error(`HTTP error! status: ${response.status}`);
-                    }
-                    
-                    studentsData = await response.json();
-                } else {
-                    // 로컬 환경: API 우선 시도
-                    try {
-                        let url = `${API_BASE_URL}/api/students-data`;
-                        const params = new URLSearchParams();
-                        
-                        if (filters.title) params.append('title', filters.title);
-                        if (filters.composer) params.append('composer', filters.composer);
-                        if (filters.limit) params.append('limit', filters.limit);
-                        
-                        if (params.toString()) {
-                            url += '?' + params.toString();
+                    if (response.ok) {
+                        const data = await response.json();
+                        if (data.success) {
+                            console.log('✅ API에서 데이터 가져오기 성공:', data.count, '개');
+                            return data.students || [];
                         }
-                        
-                        const response = await fetch(url, {
-                            method: 'GET',
-                            headers: {
-                                'Content-Type': 'application/json'
-                            },
-                            cache: 'no-cache'
-                        });
-                        
-                        if (response.ok) {
-                            const data = await response.json();
-                            if (data.success) {
-                                return data.students || [];
-                            }
-                        }
-                    } catch (apiError) {
-                        console.log('API 호출 실패, 정적 파일 사용:', apiError.message);
-                    }
-                    
-                    // API 실패 시 정적 파일 사용 (fallback)
-                    const staticResponse = await fetch('/students-data.json', {
-                        method: 'GET',
-                        headers: {
-                            'Content-Type': 'application/json'
-                        },
-                        cache: 'no-cache'
-                    });
-                    
-                    if (staticResponse.ok) {
-                        studentsData = await staticResponse.json();
                     } else {
-                        throw new Error('정적 파일을 불러올 수 없습니다.');
+                        console.warn('⚠️ API 응답 오류:', response.status, response.statusText);
                     }
+                } catch (apiError) {
+                    console.log('⚠️ API 호출 실패, 정적 파일 사용:', apiError.message);
+                }
+                
+                // API 실패 시 정적 파일 사용 (fallback)
+                console.log('📄 정적 파일에서 데이터 로드 시도...');
+                const staticResponse = await fetch('/students-data.json', {
+                    method: 'GET',
+                    headers: {
+                        'Content-Type': 'application/json'
+                    },
+                    cache: 'no-cache'
+                });
+                
+                if (staticResponse.ok) {
+                    studentsData = await staticResponse.json();
+                    console.log('✅ 정적 파일에서 데이터 가져오기 성공:', studentsData.length, '개');
+                } else {
+                    console.error('❌ 정적 파일을 불러올 수 없습니다:', staticResponse.status);
+                    throw new Error('정적 파일을 불러올 수 없습니다.');
                 }
                 
                 // 필터링 (프론트엔드에서 처리)

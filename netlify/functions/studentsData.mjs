@@ -61,17 +61,37 @@ export default async (req, context) => {
                 let sheetNames = [];
                 try {
                     const metadataUrl = `https://sheets.googleapis.com/v4/spreadsheets/${spreadsheetId}?key=${apiKey}`;
+                    console.log('📋 메타데이터 API 호출 시도:', metadataUrl.substring(0, 100) + '...');
                     const metadataResponse = await fetch(metadataUrl);
+                    
+                    console.log('📋 메타데이터 API 응답 상태:', metadataResponse.status, metadataResponse.statusText);
                     
                     if (metadataResponse.ok) {
                         const metadata = await metadataResponse.json();
+                        console.log('📋 메타데이터 응답:', {
+                            hasSheets: !!metadata.sheets,
+                            sheetsCount: metadata.sheets?.length || 0
+                        });
+                        
                         if (metadata.sheets && metadata.sheets.length > 0) {
                             sheetNames = metadata.sheets.map(sheet => sheet.properties.title);
-                            console.log(`📋 발견된 시트 목록:`, sheetNames);
+                            console.log(`✅ 발견된 시트 목록:`, sheetNames);
+                        } else {
+                            console.warn('⚠️ 메타데이터에 시트 정보가 없습니다.');
                         }
+                    } else {
+                        const errorText = await metadataResponse.text().catch(() => '응답 본문 읽기 실패');
+                        console.error('❌ 메타데이터 API 오류:', {
+                            status: metadataResponse.status,
+                            statusText: metadataResponse.statusText,
+                            error: errorText.substring(0, 500)
+                        });
                     }
                 } catch (metadataErr) {
-                    console.warn('⚠️ 시트 메타데이터 가져오기 실패, 기본 시트명 사용:', metadataErr.message);
+                    console.error('❌ 시트 메타데이터 가져오기 실패:', {
+                        message: metadataErr.message,
+                        stack: metadataErr.stack
+                    });
                 }
                 
                 // 시트명 목록이 없으면 기본값 사용

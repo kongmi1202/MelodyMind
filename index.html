@@ -2557,7 +2557,7 @@ ${finalInput || '학생이 보완 내용을 입력하지 않았습니다.'}
                 state.appData[`senseExpression${type.charAt(0).toUpperCase() + type.slice(1)}Answers`] = {};
             }
             state.appData[`senseExpression${type.charAt(0).toUpperCase() + type.slice(1)}Answers`][questionKey] = value;
-            render();
+            // render() 호출 제거: 입력 중 포커스 유지를 위해
         }
 
         function toggleKeyword(keyword) {

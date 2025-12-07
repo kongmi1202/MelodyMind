@@ -1,6 +1,6 @@
 [build]
-  # 빌드 명령어 제거 (index.html이 루트에 있으므로 빌드 불필요)
-  # command = "npm run build"
+  # 빌드 명령어 명시 (빌드 불필요하지만 명시적으로 설정)
+  command = "echo 'No build needed'"
   publish = "."  # 루트 디렉토리 (index.html이 있는 곳)
   functions = "netlify/functions"
 

@@ -58,19 +58,38 @@ export default async (req, context) => {
         // Google Sheets가 설정되어 있으면 데이터 읽기
         if (spreadsheetId && apiKey) {
             try {
-                // 여러 시트명 시도 (Google Forms 응답 시트명은 다를 수 있음)
-                const possibleSheetNames = [
-                    '설문지 응답 시트1',
-                    '시트1',
-                    'Form Responses 1',
-                    'Sheet1'
-                ];
+                // 먼저 스프레드시트 메타데이터를 가져와서 시트 목록 확인
+                let sheetNames = [];
+                try {
+                    const metadataUrl = `https://sheets.googleapis.com/v4/spreadsheets/${spreadsheetId}?key=${apiKey}`;
+                    const metadataResponse = await fetch(metadataUrl);
+                    
+                    if (metadataResponse.ok) {
+                        const metadata = await metadataResponse.json();
+                        if (metadata.sheets && metadata.sheets.length > 0) {
+                            sheetNames = metadata.sheets.map(sheet => sheet.properties.title);
+                            console.log(`📋 발견된 시트 목록:`, sheetNames);
+                        }
+                    }
+                } catch (metadataErr) {
+                    console.warn('⚠️ 시트 메타데이터 가져오기 실패, 기본 시트명 사용:', metadataErr.message);
+                }
+                
+                // 시트명 목록이 없으면 기본값 사용
+                if (sheetNames.length === 0) {
+                    sheetNames = [
+                        '설문지 응답 시트1',
+                        '시트1',
+                        'Form Responses 1',
+                        'Sheet1'
+                    ];
+                }
                 
                 let data = null;
                 let successfulRange = null;
                 
                 // 첫 번째 시트명부터 시도
-                for (const sheetName of possibleSheetNames) {
+                for (const sheetName of sheetNames) {
                     try {
                         const range = `${sheetName}!A:Z`;
                         const sheetsUrl = `https://sheets.googleapis.com/v4/spreadsheets/${spreadsheetId}/values/${encodeURIComponent(range)}?key=${apiKey}`;
@@ -80,14 +99,27 @@ export default async (req, context) => {
                         
                         if (response.ok) {
                             const responseData = await response.json();
+                            console.log(`📋 시트명 "${sheetName}" 응답:`, {
+                                hasValues: !!responseData.values,
+                                valuesLength: responseData.values?.length || 0,
+                                error: responseData.error
+                            });
+                            
                             if (responseData.values && responseData.values.length > 0) {
                                 data = responseData;
                                 successfulRange = sheetName;
                                 console.log(`✅ 시트명 "${sheetName}"에서 데이터 발견: ${responseData.values.length}행`);
                                 break;
+                            } else if (responseData.error) {
+                                console.error(`❌ Google Sheets API 오류:`, responseData.error);
                             }
                         } else {
-                            console.log(`❌ 시트명 "${sheetName}" 실패: ${response.status}`);
+                            const errorText = await response.text().catch(() => '응답 본문 읽기 실패');
+                            console.error(`❌ 시트명 "${sheetName}" 실패:`, {
+                                status: response.status,
+                                statusText: response.statusText,
+                                error: errorText.substring(0, 500)
+                            });
                         }
                     } catch (err) {
                         console.log(`❌ 시트명 "${sheetName}" 오류:`, err.message);
@@ -185,7 +217,10 @@ export default async (req, context) => {
                             };
                             
                             return obj;
-                        }).filter(item => item.title || item.studentId); // 제목 또는 학번이 있는 것만
+                        }).filter(item => {
+                            // 필터링 조건 완화: 타임스탬프가 있으면 데이터로 간주
+                            return item.timestamp || item.title || item.studentId || item.url;
+                        });
                     } else {
                         console.log('⚠️ 데이터가 없거나 헤더만 있습니다.');
                     }

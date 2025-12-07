@@ -1,7 +1,4 @@
-// Netlify Serverless Function for Students Data
-// This function reads student data from Google Sheets API
-// Google Forms 응답을 Google Sheets에 연결해야 합니다.
-
+// Netlify Serverless Function
 import fetch from 'node-fetch';
 
 export default async (req, context) => {

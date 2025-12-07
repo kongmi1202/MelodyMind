@@ -223,9 +223,6 @@ export default async (req, context) => {
                     } else {
                         console.log('⚠️ 데이터가 없거나 헤더만 있습니다.');
                     }
-                } else {
-                    console.log('⚠️ 모든 시트명 시도 실패. 데이터를 찾을 수 없습니다.');
-                }
             } catch (sheetsError) {
                 console.error('⚠️ Google Sheets에서 데이터를 읽을 수 없습니다:', {
                     message: sheetsError.message,

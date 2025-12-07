@@ -108,12 +108,17 @@ export default async (req, context) => {
                 let successfulRange = null;
                 
                 // 첫 번째 시트명부터 시도
+                console.log(`📋 시도할 시트명 목록:`, sheetNames);
                 for (const sheetName of sheetNames) {
                     try {
+                        // 시트명에 공백이나 특수문자가 있을 수 있으므로 URL 인코딩
+                        const encodedSheetName = encodeURIComponent(sheetName);
                         const range = `${sheetName}!A:Z`;
-                        const sheetsUrl = `https://sheets.googleapis.com/v4/spreadsheets/${spreadsheetId}/values/${encodeURIComponent(range)}?key=${apiKey}`;
+                        const encodedRange = encodeURIComponent(range);
+                        const sheetsUrl = `https://sheets.googleapis.com/v4/spreadsheets/${spreadsheetId}/values/${encodedRange}?key=${apiKey}`;
                         
-                        console.log(`📋 시트명 시도: ${sheetName}`);
+                        console.log(`📋 시트명 시도: "${sheetName}"`);
+                        console.log(`📋 URL: ${sheetsUrl.substring(0, 150)}...`);
                         const response = await fetch(sheetsUrl);
                         
                         if (response.ok) {

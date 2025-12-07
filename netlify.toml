@@ -1,6 +1,7 @@
 [build]
-  # 빌드 명령어 제거 (정적 파일만 배포)
-  # command를 명시하지 않으면 Netlify가 빌드를 건너뜀
+  # 빌드 명령어 명시 (정적 파일만 배포하므로 빌드 불필요)
+  # Windows와 Linux 모두에서 작동하는 빈 명령어
+  command = "echo Skipping build"
   publish = "."  # 루트 디렉토리 (index.html이 있는 곳)
   functions = "netlify/functions"
 

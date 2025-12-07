@@ -52,6 +52,12 @@
                 senseExpressionSpace: null, // 지도에서 선택한 위치 { lat, lng, address }
                 senseExpressionPattern: null, // 도형 그리기 캔버스 데이터 (base64)
                 senseExpressionNature: [], // 선택한 자연 현상 사진들
+                // 표현 타입별 질문 답변
+                senseExpressionPatternAnswers: {}, // 그림 질문 답변
+                senseExpressionMovementAnswers: {}, // 움직임 질문 답변
+                senseExpressionNatureAnswers: {}, // 자연 현상 질문 답변
+                senseExpressionSpaceAnswers: {}, // 지도 질문 답변
+                senseExpressionPoetryAnswers: {}, // 시 질문 답변
                 techSound: '', techRhythm: '', analysisHarmony: '', analysisForm: '',
                 interpIntent: '', interpScene: '', evalArt: '', evalApply: '',
                 feedback: {
@@ -192,6 +198,11 @@
                     senseExpressionSpace: state.appData.senseExpressionSpace ? JSON.stringify(state.appData.senseExpressionSpace) : '',
                     senseExpressionPattern: state.appData.senseExpressionPattern ? '그림 생성됨' : '',
                     senseExpressionNature: state.appData.senseExpressionNature.join(', '),
+                    senseExpressionPatternAnswers: JSON.stringify(state.appData.senseExpressionPatternAnswers || {}),
+                    senseExpressionMovementAnswers: JSON.stringify(state.appData.senseExpressionMovementAnswers || {}),
+                    senseExpressionNatureAnswers: JSON.stringify(state.appData.senseExpressionNatureAnswers || {}),
+                    senseExpressionSpaceAnswers: JSON.stringify(state.appData.senseExpressionSpaceAnswers || {}),
+                    senseExpressionPoetryAnswers: JSON.stringify(state.appData.senseExpressionPoetryAnswers || {}),
                     techSound: state.appData.techSound,
                     techRhythm: state.appData.techRhythm,
                     analysisHarmony: state.appData.analysisHarmony,
@@ -295,6 +306,42 @@ ${d.senseExpressionType.length > 0 ? d.senseExpressionType.map(t => {
             return nature ? `${nature.emoji} ${nature.name}` : id;
         }).join(', ');
         result += `: ${natureNames} (과학)`;
+    }
+    
+    // 질문 답변 추가
+    if (t === 'pattern' && d.senseExpressionPatternAnswers && Object.keys(d.senseExpressionPatternAnswers).length > 0) {
+        result += '\n  그림 표현 질문 답변:';
+        if (d.senseExpressionPatternAnswers.colorReason) result += `\n    - 색 선택 이유: ${d.senseExpressionPatternAnswers.colorReason}`;
+        if (d.senseExpressionPatternAnswers.sound) result += `\n    - 음악 소리와 그림의 연결: ${d.senseExpressionPatternAnswers.sound}`;
+        if (d.senseExpressionPatternAnswers.importantPart) result += `\n    - 가장 중요한 부분: ${d.senseExpressionPatternAnswers.importantPart}`;
+        if (d.senseExpressionPatternAnswers.whyImportant) result += `\n    - 중요하다고 생각한 이유: ${d.senseExpressionPatternAnswers.whyImportant}`;
+    }
+    if (t === 'movement' && d.senseExpressionMovementAnswers && Object.keys(d.senseExpressionMovementAnswers).length > 0) {
+        result += '\n  움직임 표현 질문 답변:';
+        if (d.senseExpressionMovementAnswers.description) result += `\n    - 동작 설명: ${d.senseExpressionMovementAnswers.description}`;
+        if (d.senseExpressionMovementAnswers.reason) result += `\n    - 동작 선택 이유: ${d.senseExpressionMovementAnswers.reason}`;
+        if (d.senseExpressionMovementAnswers.how) result += `\n    - 몸 움직임 방법: ${d.senseExpressionMovementAnswers.how}`;
+        if (d.senseExpressionMovementAnswers.connection) result += `\n    - 동작과 음악의 연결: ${d.senseExpressionMovementAnswers.connection}`;
+    }
+    if (t === 'nature' && d.senseExpressionNatureAnswers && Object.keys(d.senseExpressionNatureAnswers).length > 0) {
+        result += '\n  자연 현상 표현 질문 답변:';
+        if (d.senseExpressionNatureAnswers.reason) result += `\n    - 자연 현상 선택 이유: ${d.senseExpressionNatureAnswers.reason}`;
+        if (d.senseExpressionNatureAnswers.musicPart) result += `\n    - 음악의 어떤 부분이 자연 현상을 떠올리게 했는지: ${d.senseExpressionNatureAnswers.musicPart}`;
+        if (d.senseExpressionNatureAnswers.movement) result += `\n    - 자연 현상의 움직임과 음악의 연결: ${d.senseExpressionNatureAnswers.movement}`;
+        if (d.senseExpressionNatureAnswers.alternative) result += `\n    - 다른 자연 현상 대안: ${d.senseExpressionNatureAnswers.alternative}`;
+    }
+    if (t === 'space' && d.senseExpressionSpaceAnswers && Object.keys(d.senseExpressionSpaceAnswers).length > 0) {
+        result += '\n  지도 표현 질문 답변:';
+        if (d.senseExpressionSpaceAnswers.reason) result += `\n    - 장소 선택 이유: ${d.senseExpressionSpaceAnswers.reason}`;
+        if (d.senseExpressionSpaceAnswers.connection) result += `\n    - 장소와 음악의 연결: ${d.senseExpressionSpaceAnswers.connection}`;
+        if (d.senseExpressionSpaceAnswers.scene) result += `\n    - 장소에서의 음악 장면/상황: ${d.senseExpressionSpaceAnswers.scene}`;
+    }
+    if (t === 'poetry' && d.senseExpressionPoetryAnswers && Object.keys(d.senseExpressionPoetryAnswers).length > 0) {
+        result += '\n  시적 표현 질문 답변:';
+        if (d.senseExpressionPoetryAnswers.firstFeeling) result += `\n    - 가장 먼저 떠오른 느낌: ${d.senseExpressionPoetryAnswers.firstFeeling}`;
+        if (d.senseExpressionPoetryAnswers.image) result += `\n    - 상상한 장면/이미지: ${d.senseExpressionPoetryAnswers.image}`;
+        if (d.senseExpressionPoetryAnswers.importantWord) result += `\n    - 가장 중요한 단어와 이유: ${d.senseExpressionPoetryAnswers.importantWord}`;
+        if (d.senseExpressionPoetryAnswers.favoriteLine) result += `\n    - 마음에 드는 구절과 이유: ${d.senseExpressionPoetryAnswers.favoriteLine}`;
     }
     
     return result;
@@ -491,10 +538,10 @@ ${d.senseExpressionType.length > 0 ? d.senseExpressionType.map(t => {
      * 학생이 입력한 내용(1단계: 반응, 2단계: 기술/분석, 3단계: 해석/평가)을 모두 포함하세요.
      * **중요**: 1단계의 "다른 방식으로 표현하기"에서 학생이 표현한 내용도 반드시 포함하세요.
        - 시적 표현/문구(국어): 학생이 입력한 시적 표현 텍스트를 감상문에 자연스럽게 포함
-       - 움직임/동작(체육/무용): 학생이 카메라로 캡처한 움직임 표현이 있다는 것을 언급
-       - 자연 현상(과학): 학생이 선택한 자연 현상(예: 폭풍, 번개 등)을 감상문에 포함
-       - 공간/장소(사회/지리): 학생이 선택한 위치 정보를 감상문에 포함
-       - 도형/패턴(수학): 학생이 그린 도형/패턴 그림이 있다는 것을 언급
+       - 움직임/동작(체육/무용): 학생이 카메라로 캡처한 움직임 표현이 있다는 것을 언급 (이미지는 별도로 표시되므로 텍스트에서는 언급만)
+       - 자연 현상(과학): 학생이 선택한 자연 현상의 **구체적인 이름**(예: "폭풍", "번개", "비" 등)을 감상문에 반드시 포함하세요
+       - 공간/장소(사회/지리): 학생이 선택한 위치의 **구체적인 주소나 위치 정보**를 감상문에 반드시 포함하세요 (예: "서울특별시 강남구..." 또는 "위도 37.5665, 경도 126.9780")
+       - 도형/패턴(수학): 학생이 그린 도형/패턴 그림이 있다는 것을 언급 (이미지는 별도로 표시되므로 텍스트에서는 언급만)
      * 5단계 비평 구조(반응-기술-분석-해석-평가)에 맞춰 자연스럽게 연결하세요.
      * 각 단계의 내용을 문단으로 구성하여 읽기 좋은 감상문 형태로 작성하세요.
      * 문장을 다듬고 연결하여 완성도 높은 초안을 만들되, 학생의 원래 의도와 내용은 그대로 유지하세요.
@@ -650,11 +697,11 @@ ${d.senseExpressionType.length > 0 ? d.senseExpressionType.map(t => {
 3. **작성 방법**:
    - 학생의 1단계(반응), 2단계(기술/분석), 3단계(해석/평가) 입력을 5단계 비평 구조에 맞게 재구성
    - **중요**: 1단계의 "다른 방식으로 표현하기"에서 학생이 표현한 내용도 반드시 포함하세요.
-     - 시적 표현/문구(국어): 학생이 입력한 시적 표현 텍스트를 감상문에 자연스럽게 포함
-     - 움직임/동작(체육/무용): 학생이 카메라로 캡처한 움직임 표현이 있다는 것을 언급
-     - 자연 현상(과학): 학생이 선택한 자연 현상(예: 폭풍, 번개 등)을 감상문에 포함
-     - 공간/장소(사회/지리): 학생이 선택한 위치 정보를 감상문에 포함
-     - 도형/패턴(수학): 학생이 그린 도형/패턴 그림이 있다는 것을 언급
+     - 시적 표현/문구(국어): 학생이 입력한 시적 표현 텍스트를 감상문에 자연스럽게 포함. **질문 답변 내용**(가장 먼저 떠오른 느낌, 상상한 장면/이미지, 중요한 단어, 마음에 드는 구절)도 반드시 포함하세요.
+     - 움직임/동작(체육/무용): 학생이 카메라로 캡처한 움직임 표현이 있다는 것을 언급 (이미지는 별도로 표시되므로 텍스트에서는 언급만). **질문 답변 내용**(동작 설명, 선택 이유, 몸 움직임 방법, 음악과의 연결)도 반드시 포함하세요.
+     - 자연 현상(과학): 학생이 선택한 자연 현상의 **구체적인 이름**(예: "폭풍", "번개", "비" 등)을 감상문에 반드시 포함하세요. **질문 답변 내용**(선택 이유, 음악의 어떤 부분이 자연 현상을 떠올리게 했는지, 움직임의 연결, 다른 자연 현상 대안)도 반드시 포함하세요.
+     - 공간/장소(사회/지리): 학생이 선택한 위치의 **구체적인 주소나 위치 정보**를 감상문에 반드시 포함하세요 (예: "서울특별시 강남구..." 또는 "위도 37.5665, 경도 126.9780"). **질문 답변 내용**(장소 선택 이유, 장소와 음악의 연결, 장소에서의 음악 장면/상황)도 반드시 포함하세요.
+     - 도형/패턴(수학): 학생이 그린 도형/패턴 그림이 있다는 것을 언급 (이미지는 별도로 표시되므로 텍스트에서는 언급만). **질문 답변 내용**(색 선택 이유, 음악 소리와 그림의 연결, 가장 중요한 부분, 중요하다고 생각한 이유)도 반드시 포함하세요.
    - 학생의 보완 내용을 적절한 위치에 통합
    - 문장을 자연스럽게 다듬되, 학생의 원래 의도와 내용은 그대로 유지
 
@@ -755,6 +802,11 @@ ${finalInput || '학생이 보완 내용을 입력하지 않았습니다.'}
                     senseExpressionSpace: state.appData.senseExpressionSpace ? JSON.stringify(state.appData.senseExpressionSpace) : '',
                     senseExpressionPattern: state.appData.senseExpressionPattern ? '그림 생성됨' : '',
                     senseExpressionNature: state.appData.senseExpressionNature.join(', '),
+                    senseExpressionPatternAnswers: JSON.stringify(state.appData.senseExpressionPatternAnswers || {}),
+                    senseExpressionMovementAnswers: JSON.stringify(state.appData.senseExpressionMovementAnswers || {}),
+                    senseExpressionNatureAnswers: JSON.stringify(state.appData.senseExpressionNatureAnswers || {}),
+                    senseExpressionSpaceAnswers: JSON.stringify(state.appData.senseExpressionSpaceAnswers || {}),
+                    senseExpressionPoetryAnswers: JSON.stringify(state.appData.senseExpressionPoetryAnswers || {}),
                     techSound: state.appData.techSound,
                     techRhythm: state.appData.techRhythm,
                     analysisHarmony: state.appData.analysisHarmony,
@@ -1182,6 +1234,35 @@ ${finalInput || '학생이 보완 내용을 입력하지 않았습니다.'}
                                             placeholder="예: 달빛에 물든 바다, 고요한 밤의 불안" 
                                             class="w-full p-2 border border-gray-300 rounded-md mt-1">${state.appData.senseExpressionText}</textarea>
                                     </div>
+                                    <div class="mb-4 p-4 bg-green-50 border border-green-200 rounded-md">
+                                        <h4 class="font-semibold text-green-800 mb-3">🌙 시적 표현에 대한 질문</h4>
+                                        <div class="space-y-4">
+                                            <div>
+                                                <label class="block text-sm font-medium text-gray-700 mb-1">시적 표현을 쓸 때 가장 먼저 떠올랐던 느낌은 무엇이었나요?</label>
+                                                <textarea oninput="updateExpressionAnswer('poetry', 'firstFeeling', this.value)" rows="2" 
+                                                    class="w-full p-2 border border-gray-300 rounded-md text-sm" 
+                                                    placeholder="가장 먼저 떠오른 느낌을 설명해주세요.">${state.appData.senseExpressionPoetryAnswers.firstFeeling || ''}</textarea>
+                                            </div>
+                                            <div>
+                                                <label class="block text-sm font-medium text-gray-700 mb-1">음악을 어떤 장면이나 이미지로 상상했나요?</label>
+                                                <textarea oninput="updateExpressionAnswer('poetry', 'image', this.value)" rows="2" 
+                                                    class="w-full p-2 border border-gray-300 rounded-md text-sm" 
+                                                    placeholder="상상한 장면이나 이미지를 설명해주세요.">${state.appData.senseExpressionPoetryAnswers.image || ''}</textarea>
+                                            </div>
+                                            <div>
+                                                <label class="block text-sm font-medium text-gray-700 mb-1">시 속에서 가장 중요한 단어는 어떤 건가요? 왜 그렇게 생각했나요?</label>
+                                                <textarea oninput="updateExpressionAnswer('poetry', 'importantWord', this.value)" rows="2" 
+                                                    class="w-full p-2 border border-gray-300 rounded-md text-sm" 
+                                                    placeholder="가장 중요한 단어와 그 이유를 설명해주세요.">${state.appData.senseExpressionPoetryAnswers.importantWord || ''}</textarea>
+                                            </div>
+                                            <div>
+                                                <label class="block text-sm font-medium text-gray-700 mb-1">가장 마음에 드는 구절은 어디인가요? 왜 그렇게 생각하나요?</label>
+                                                <textarea oninput="updateExpressionAnswer('poetry', 'favoriteLine', this.value)" rows="2" 
+                                                    class="w-full p-2 border border-gray-300 rounded-md text-sm" 
+                                                    placeholder="마음에 드는 구절과 그 이유를 설명해주세요.">${state.appData.senseExpressionPoetryAnswers.favoriteLine || ''}</textarea>
+                                            </div>
+                                        </div>
+                                    </div>
                                     `;
                                 }
                                 
@@ -1233,6 +1314,37 @@ ${finalInput || '학생이 보완 내용을 입력하지 않았습니다.'}
                                                 : '없음'} (${state.appData.senseExpressionNature.length}/3)
                                         </p>
                                     </div>
+                                    ${state.appData.senseExpressionNature.length > 0 ? `
+                                    <div class="mb-4 p-4 bg-green-50 border border-green-200 rounded-md">
+                                        <h4 class="font-semibold text-green-800 mb-3">🌿 자연 현상 표현에 대한 질문</h4>
+                                        <div class="space-y-4">
+                                            <div>
+                                                <label class="block text-sm font-medium text-gray-700 mb-1">이 자연 현상을 선택한 이유가 무엇인가요?</label>
+                                                <textarea oninput="updateExpressionAnswer('nature', 'reason', this.value)" rows="2" 
+                                                    class="w-full p-2 border border-gray-300 rounded-md text-sm" 
+                                                    placeholder="예: 이 음악에서 바람 소리가 나는 것 같아서 바람을 떠올렸어요.">${state.appData.senseExpressionNatureAnswers.reason || ''}</textarea>
+                                            </div>
+                                            <div>
+                                                <label class="block text-sm font-medium text-gray-700 mb-1">음악의 어떤 부분이 그 자연 현상을 생각하게 했나요?</label>
+                                                <textarea oninput="updateExpressionAnswer('nature', 'musicPart', this.value)" rows="2" 
+                                                    class="w-full p-2 border border-gray-300 rounded-md text-sm" 
+                                                    placeholder="예: 이 부분은 파도가 세게 치는 느낌이었어요.">${state.appData.senseExpressionNatureAnswers.musicPart || ''}</textarea>
+                                            </div>
+                                            <div>
+                                                <label class="block text-sm font-medium text-gray-700 mb-1">선택한 자연 현상의 움직임(세기/속도)이 음악과 어떻게 닮았나요?</label>
+                                                <textarea oninput="updateExpressionAnswer('nature', 'movement', this.value)" rows="2" 
+                                                    class="w-full p-2 border border-gray-300 rounded-md text-sm" 
+                                                    placeholder="예: 조용해져서 눈이 내리는 느낌을 넣었어요.">${state.appData.senseExpressionNatureAnswers.movement || ''}</textarea>
+                                            </div>
+                                            <div>
+                                                <label class="block text-sm font-medium text-gray-700 mb-1">이 자연 현상을 선택하지 않았다면 어떤 다른 자연을 떠올릴 것 같나요?</label>
+                                                <textarea oninput="updateExpressionAnswer('nature', 'alternative', this.value)" rows="2" 
+                                                    class="w-full p-2 border border-gray-300 rounded-md text-sm" 
+                                                    placeholder="다른 자연 현상을 떠올린다면...">${state.appData.senseExpressionNatureAnswers.alternative || ''}</textarea>
+                                            </div>
+                                        </div>
+                                    </div>
+                                    ` : ''}
                                     `;
                                 }
                                 
@@ -1271,6 +1383,37 @@ ${finalInput || '학생이 보완 내용을 입력하지 않았습니다.'}
                                             `}
                                         </div>
                                     </div>
+                                    ${state.appData.senseExpressionMovement ? `
+                                    <div class="mb-4 p-4 bg-green-50 border border-green-200 rounded-md">
+                                        <h4 class="font-semibold text-green-800 mb-3">🕺 움직임 표현에 대한 질문</h4>
+                                        <div class="space-y-4">
+                                            <div>
+                                                <label class="block text-sm font-medium text-gray-700 mb-1">동작에 대해 설명해 보세요.</label>
+                                                <textarea oninput="updateExpressionAnswer('movement', 'description', this.value)" rows="2" 
+                                                    class="w-full p-2 border border-gray-300 rounded-md text-sm" 
+                                                    placeholder="동작을 자세히 설명해주세요.">${state.appData.senseExpressionMovementAnswers.description || ''}</textarea>
+                                            </div>
+                                            <div>
+                                                <label class="block text-sm font-medium text-gray-700 mb-1">왜 이 동작을 선택했나요?</label>
+                                                <textarea oninput="updateExpressionAnswer('movement', 'reason', this.value)" rows="2" 
+                                                    class="w-full p-2 border border-gray-300 rounded-md text-sm" 
+                                                    placeholder="예: 이 동작은 음악이 ○○할 때 떠올라서 했어요.">${state.appData.senseExpressionMovementAnswers.reason || ''}</textarea>
+                                            </div>
+                                            <div>
+                                                <label class="block text-sm font-medium text-gray-700 mb-1">몸을 어떻게 움직였나요?</label>
+                                                <textarea oninput="updateExpressionAnswer('movement', 'how', this.value)" rows="2" 
+                                                    class="w-full p-2 border border-gray-300 rounded-md text-sm" 
+                                                    placeholder="예: 팔을 크게 쓴 건 소리가 세게 들렸기 때문이에요.">${state.appData.senseExpressionMovementAnswers.how || ''}</textarea>
+                                            </div>
+                                            <div>
+                                                <label class="block text-sm font-medium text-gray-700 mb-1">동작이 음악과 어떻게 연결되나요?</label>
+                                                <textarea oninput="updateExpressionAnswer('movement', 'connection', this.value)" rows="2" 
+                                                    class="w-full p-2 border border-gray-300 rounded-md text-sm" 
+                                                    placeholder="동작과 음악의 연결점을 설명해주세요.">${state.appData.senseExpressionMovementAnswers.connection || ''}</textarea>
+                                            </div>
+                                        </div>
+                                    </div>
+                                    ` : ''}
                                     `;
                                 }
                                 
@@ -1303,6 +1446,31 @@ ${finalInput || '학생이 보완 내용을 입력하지 않았습니다.'}
                                             ` : ''}
                                         </div>
                                     </div>
+                                    ${state.appData.senseExpressionSpace ? `
+                                    <div class="mb-4 p-4 bg-green-50 border border-green-200 rounded-md">
+                                        <h4 class="font-semibold text-green-800 mb-3">🗺️ 지도 표현에 대한 질문</h4>
+                                        <div class="space-y-4">
+                                            <div>
+                                                <label class="block text-sm font-medium text-gray-700 mb-1">왜 이 장소를 선택했나요?</label>
+                                                <textarea oninput="updateExpressionAnswer('space', 'reason', this.value)" rows="2" 
+                                                    class="w-full p-2 border border-gray-300 rounded-md text-sm" 
+                                                    placeholder="장소를 선택한 이유를 설명해주세요.">${state.appData.senseExpressionSpaceAnswers.reason || ''}</textarea>
+                                            </div>
+                                            <div>
+                                                <label class="block text-sm font-medium text-gray-700 mb-1">선택한 장소와 음악이 어떻게 연결되나요?</label>
+                                                <textarea oninput="updateExpressionAnswer('space', 'connection', this.value)" rows="2" 
+                                                    class="w-full p-2 border border-gray-300 rounded-md text-sm" 
+                                                    placeholder="장소와 음악의 연결점을 설명해주세요.">${state.appData.senseExpressionSpaceAnswers.connection || ''}</textarea>
+                                            </div>
+                                            <div>
+                                                <label class="block text-sm font-medium text-gray-700 mb-1">선택한 장소에서 이 음악이 나온다면, 어떤 장면, 상황에서 이 음악이 나오고 있을지 설명해주세요.</label>
+                                                <textarea oninput="updateExpressionAnswer('space', 'scene', this.value)" rows="3" 
+                                                    class="w-full p-2 border border-gray-300 rounded-md text-sm" 
+                                                    placeholder="장면과 상황을 자세히 설명해주세요.">${state.appData.senseExpressionSpaceAnswers.scene || ''}</textarea>
+                                            </div>
+                                        </div>
+                                    </div>
+                                    ` : ''}
                                     `;
                                 }
                                 
@@ -1337,6 +1505,37 @@ ${finalInput || '학생이 보완 내용을 입력하지 않았습니다.'}
                                             `}
                                         </div>
                                     </div>
+                                    ${state.appData.senseExpressionPattern ? `
+                                    <div class="mb-4 p-4 bg-green-50 border border-green-200 rounded-md">
+                                        <h4 class="font-semibold text-green-800 mb-3">🎨 그림 표현에 대한 질문</h4>
+                                        <div class="space-y-4">
+                                            <div>
+                                                <label class="block text-sm font-medium text-gray-700 mb-1">그림에서 이 색을 왜 선택했나요?</label>
+                                                <textarea oninput="updateExpressionAnswer('pattern', 'colorReason', this.value)" rows="2" 
+                                                    class="w-full p-2 border border-gray-300 rounded-md text-sm" 
+                                                    placeholder="예: 이 색은 음악이 ○○하게 들려서 골랐어요.">${state.appData.senseExpressionPatternAnswers.colorReason || ''}</textarea>
+                                            </div>
+                                            <div>
+                                                <label class="block text-sm font-medium text-gray-700 mb-1">음악에서 어떤 소리를 듣고 이 그림을 그렸나요?</label>
+                                                <textarea oninput="updateExpressionAnswer('pattern', 'sound', this.value)" rows="2" 
+                                                    class="w-full p-2 border border-gray-300 rounded-md text-sm" 
+                                                    placeholder="음악의 소리와 그림의 연결을 설명해주세요.">${state.appData.senseExpressionPatternAnswers.sound || ''}</textarea>
+                                            </div>
+                                            <div>
+                                                <label class="block text-sm font-medium text-gray-700 mb-1">그림에서 가장 중요한 부분은 어디인가요?</label>
+                                                <textarea oninput="updateExpressionAnswer('pattern', 'importantPart', this.value)" rows="2" 
+                                                    class="w-full p-2 border border-gray-300 rounded-md text-sm" 
+                                                    placeholder="예: 여기 모양은 노래가 커지는 소리를 나타낸 거예요.">${state.appData.senseExpressionPatternAnswers.importantPart || ''}</textarea>
+                                            </div>
+                                            <div>
+                                                <label class="block text-sm font-medium text-gray-700 mb-1">왜 그 부분이 중요하다고 생각하나요?</label>
+                                                <textarea oninput="updateExpressionAnswer('pattern', 'whyImportant', this.value)" rows="2" 
+                                                    class="w-full p-2 border border-gray-300 rounded-md text-sm" 
+                                                    placeholder="예: 이 부분을 크게 그린 건 후렴이 세게 들렸기 때문이에요.">${state.appData.senseExpressionPatternAnswers.whyImportant || ''}</textarea>
+                                            </div>
+                                        </div>
+                                    </div>
+                                    ` : ''}
                                     `;
                                 }
                                 
@@ -1566,6 +1765,45 @@ ${finalInput || '학생이 보완 내용을 입력하지 않았습니다.'}
                         <div class="prose text-gray-800 text-sm whitespace-pre-wrap bg-blue-50 p-4 rounded-md">
                             ${state.appData.feedback.draftAppreciation}
                         </div>
+                        ${(() => {
+                            const natureImages = [
+                                { id: 'storm', name: '폭풍', emoji: '⛈️' },
+                                { id: 'lightning', name: '번개', emoji: '⚡' },
+                                { id: 'rain', name: '비', emoji: '🌧️' },
+                                { id: 'snow', name: '눈', emoji: '❄️' },
+                                { id: 'wind', name: '바람', emoji: '💨' },
+                                { id: 'wave', name: '파도', emoji: '🌊' },
+                                { id: 'sun', name: '태양', emoji: '☀️' },
+                                { id: 'moon', name: '달', emoji: '🌙' },
+                                { id: 'cloud', name: '구름', emoji: '☁️' },
+                                { id: 'fire', name: '불', emoji: '🔥' }
+                            ];
+                            let expressionContent = '';
+                            
+                            // 움직임/동작 사진 (movement)
+                            if (state.appData.senseExpressionType.includes('movement') && state.appData.senseExpressionMovement) {
+                                expressionContent += `
+                                    <div class="mt-4 pt-4 border-t border-blue-200">
+                                        <p class="text-xs font-semibold text-blue-700 mb-2">💃 움직임/동작 표현 (체육/무용)</p>
+                                        <img src="${state.appData.senseExpressionMovement}" alt="움직임 표현" class="max-w-full h-auto rounded border border-gray-300" style="max-height: 300px;" onerror="this.style.display='none'; this.nextElementSibling.style.display='block';" />
+                                        <p class="text-xs text-red-500 mt-1" style="display:none;">이미지를 불러올 수 없습니다.</p>
+                                    </div>
+                                `;
+                            }
+                            
+                            // 도형/패턴 그림 (pattern)
+                            if (state.appData.senseExpressionType.includes('pattern') && state.appData.senseExpressionPattern) {
+                                expressionContent += `
+                                    <div class="mt-4 pt-4 border-t border-blue-200">
+                                        <p class="text-xs font-semibold text-blue-700 mb-2">🔷 도형/패턴 표현 (수학)</p>
+                                        <img src="${state.appData.senseExpressionPattern}" alt="도형/패턴 표현" class="max-w-full h-auto rounded border border-gray-300" style="max-height: 300px;" onerror="this.style.display='none'; this.nextElementSibling.style.display='block';" />
+                                        <p class="text-xs text-red-500 mt-1" style="display:none;">이미지를 불러올 수 없습니다.</p>
+                                    </div>
+                                `;
+                            }
+                            
+                            return expressionContent;
+                        })()}
                     </div>
                     ` : ''}
 
@@ -2132,6 +2370,45 @@ ${finalInput || '학생이 보완 내용을 입력하지 않았습니다.'}
                                 <div class="prose text-gray-800 text-sm whitespace-pre-wrap max-h-96 overflow-y-auto">
                                     ${state.appData.finalAppreciation || "최종 감상문 생성 중 오류가 발생했거나 데이터가 없습니다."}
                                 </div>
+                                ${(() => {
+                                    const natureImages = [
+                                        { id: 'storm', name: '폭풍', emoji: '⛈️' },
+                                        { id: 'lightning', name: '번개', emoji: '⚡' },
+                                        { id: 'rain', name: '비', emoji: '🌧️' },
+                                        { id: 'snow', name: '눈', emoji: '❄️' },
+                                        { id: 'wind', name: '바람', emoji: '💨' },
+                                        { id: 'wave', name: '파도', emoji: '🌊' },
+                                        { id: 'sun', name: '태양', emoji: '☀️' },
+                                        { id: 'moon', name: '달', emoji: '🌙' },
+                                        { id: 'cloud', name: '구름', emoji: '☁️' },
+                                        { id: 'fire', name: '불', emoji: '🔥' }
+                                    ];
+                                    let expressionContent = '';
+                                    
+                                    // 움직임/동작 사진 (movement)
+                                    if (state.appData.senseExpressionType.includes('movement') && state.appData.senseExpressionMovement) {
+                                        expressionContent += `
+                                            <div class="mt-4 pt-4 border-t border-indigo-200">
+                                                <p class="text-xs font-semibold text-indigo-700 mb-2">💃 움직임/동작 표현 (체육/무용)</p>
+                                                <img src="${state.appData.senseExpressionMovement}" alt="움직임 표현" class="max-w-full h-auto rounded border border-gray-300" style="max-height: 300px;" onerror="this.style.display='none'; this.nextElementSibling.style.display='block';" />
+                                                <p class="text-xs text-red-500 mt-1" style="display:none;">이미지를 불러올 수 없습니다.</p>
+                                            </div>
+                                        `;
+                                    }
+                                    
+                                    // 도형/패턴 그림 (pattern)
+                                    if (state.appData.senseExpressionType.includes('pattern') && state.appData.senseExpressionPattern) {
+                                        expressionContent += `
+                                            <div class="mt-4 pt-4 border-t border-indigo-200">
+                                                <p class="text-xs font-semibold text-indigo-700 mb-2">🔷 도형/패턴 표현 (수학)</p>
+                                                <img src="${state.appData.senseExpressionPattern}" alt="도형/패턴 표현" class="max-w-full h-auto rounded border border-gray-300" style="max-height: 300px;" onerror="this.style.display='none'; this.nextElementSibling.style.display='block';" />
+                                                <p class="text-xs text-red-500 mt-1" style="display:none;">이미지를 불러올 수 없습니다.</p>
+                                            </div>
+                                        `;
+                                    }
+                                    
+                                    return expressionContent;
+                                })()}
                             </div>
                             <div class="bg-white p-4 rounded-lg shadow-md border border-green-200">
                                 <h4 class="font-bold text-lg text-green-600 mb-2">⭐ 모범 감상문 예시</h4>
@@ -2273,6 +2550,14 @@ ${finalInput || '학생이 보완 내용을 입력하지 않았습니다.'}
         // =========================
         function updateField(field, value) {
             state.appData[field] = value;
+        }
+
+        function updateExpressionAnswer(type, questionKey, value) {
+            if (!state.appData[`senseExpression${type.charAt(0).toUpperCase() + type.slice(1)}Answers`]) {
+                state.appData[`senseExpression${type.charAt(0).toUpperCase() + type.slice(1)}Answers`] = {};
+            }
+            state.appData[`senseExpression${type.charAt(0).toUpperCase() + type.slice(1)}Answers`][questionKey] = value;
+            render();
         }
 
         function toggleKeyword(keyword) {

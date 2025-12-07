@@ -1,6 +1,6 @@
 [build]
-  # 빌드 명령어 명시 (빌드 불필요하지만 명시적으로 설정)
-  command = "echo 'No build needed'"
+  # 빌드 명령어 제거 (정적 파일만 배포)
+  # command를 명시하지 않으면 Netlify가 빌드를 건너뜀
   publish = "."  # 루트 디렉토리 (index.html이 있는 곳)
   functions = "netlify/functions"
 

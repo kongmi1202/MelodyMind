@@ -1,6 +1,23 @@
 // Netlify Serverless Function
 import fetch from 'node-fetch';
 
+// Helper function for URL parsing
+function parseUrlParams(url) {
+    try {
+        if (url && url.includes('?')) {
+            const urlObj = new URL(url);
+            return {
+                title: urlObj.searchParams.get('title'),
+                composer: urlObj.searchParams.get('composer'),
+                limit: urlObj.searchParams.get('limit')
+            };
+        }
+    } catch (e) {
+        // URL 파싱 실패 시 무시
+    }
+    return { title: null, composer: null, limit: null };
+}
+
 export default async (req, context) => {
     // CORS 헤더 설정
     const headers = {

@@ -25,33 +25,77 @@ export default async (req, context) => {
     }
 
     try {
-        // URL 파라미터 파싱
-        const url = new URL(req.url);
-        const title = url.searchParams.get('title');
-        const composer = url.searchParams.get('composer');
-        const limit = url.searchParams.get('limit');
+        // URL 파라미터 파싱 (Netlify Functions v2 호환)
+        let title = null;
+        let composer = null;
+        let limit = null;
+        
+        try {
+            // req.url이 전체 URL인 경우
+            if (req.url && req.url.includes('?')) {
+                const url = new URL(req.url);
+                title = url.searchParams.get('title');
+                composer = url.searchParams.get('composer');
+                limit = url.searchParams.get('limit');
+            }
+        } catch (e) {
+            // URL 파싱 실패 시 무시
+        }
 
         // Google Sheets API를 사용하여 데이터 읽기
         const spreadsheetId = process.env.GOOGLE_SHEETS_ID;
         const apiKey = process.env.GOOGLE_API_KEY || process.env.YOUTUBE_API_KEY;
+
+        // 디버깅 정보 로깅
+        console.log('📊 학생 데이터 조회 시작:', {
+            hasSpreadsheetId: !!spreadsheetId,
+            hasApiKey: !!apiKey,
+            spreadsheetId: spreadsheetId ? spreadsheetId.substring(0, 10) + '...' : '없음'
+        });
 
         let studentsData = [];
 
         // Google Sheets가 설정되어 있으면 데이터 읽기
         if (spreadsheetId && apiKey) {
             try {
-                // Google Sheets API v4로 데이터 읽기
-                // 범위: 응답 시트의 모든 데이터
-                // 시트명: "설문지 응답 시트1" (Google Forms 기본 응답 시트명)
-                const range = '설문지 응답 시트1!A:Z';
-                const sheetsUrl = `https://sheets.googleapis.com/v4/spreadsheets/${spreadsheetId}/values/${encodeURIComponent(range)}?key=${apiKey}`;
+                // 여러 시트명 시도 (Google Forms 응답 시트명은 다를 수 있음)
+                const possibleSheetNames = [
+                    '설문지 응답 시트1',
+                    '시트1',
+                    'Form Responses 1',
+                    'Sheet1'
+                ];
                 
-                const response = await fetch(sheetsUrl);
+                let data = null;
+                let successfulRange = null;
                 
-                if (response.ok) {
-                    const data = await response.json();
-                    
-                    if (data.values && data.values.length > 1) {
+                // 첫 번째 시트명부터 시도
+                for (const sheetName of possibleSheetNames) {
+                    try {
+                        const range = `${sheetName}!A:Z`;
+                        const sheetsUrl = `https://sheets.googleapis.com/v4/spreadsheets/${spreadsheetId}/values/${encodeURIComponent(range)}?key=${apiKey}`;
+                        
+                        console.log(`📋 시트명 시도: ${sheetName}`);
+                        const response = await fetch(sheetsUrl);
+                        
+                        if (response.ok) {
+                            const responseData = await response.json();
+                            if (responseData.values && responseData.values.length > 0) {
+                                data = responseData;
+                                successfulRange = sheetName;
+                                console.log(`✅ 시트명 "${sheetName}"에서 데이터 발견: ${responseData.values.length}행`);
+                                break;
+                            }
+                        } else {
+                            console.log(`❌ 시트명 "${sheetName}" 실패: ${response.status}`);
+                        }
+                    } catch (err) {
+                        console.log(`❌ 시트명 "${sheetName}" 오류:`, err.message);
+                        continue;
+                    }
+                }
+                
+                if (data && data.values && data.values.length > 1) {
                         // 첫 번째 행은 헤더
                         const headerRow = data.values[0];
                         const rows = data.values.slice(1);
@@ -142,17 +186,27 @@ export default async (req, context) => {
                             
                             return obj;
                         }).filter(item => item.title || item.studentId); // 제목 또는 학번이 있는 것만
+                    } else {
+                        console.log('⚠️ 데이터가 없거나 헤더만 있습니다.');
                     }
                 } else {
-                    console.warn('⚠️ Google Sheets API 응답 오류:', response.status, response.statusText);
+                    console.log('⚠️ 모든 시트명 시도 실패. 데이터를 찾을 수 없습니다.');
                 }
             } catch (sheetsError) {
-                console.warn('⚠️ Google Sheets에서 데이터를 읽을 수 없습니다:', sheetsError.message);
+                console.error('⚠️ Google Sheets에서 데이터를 읽을 수 없습니다:', {
+                    message: sheetsError.message,
+                    stack: sheetsError.stack
+                });
                 // 계속 진행 (빈 배열 반환)
             }
         } else {
-            console.warn('⚠️ Google Sheets ID 또는 API Key가 설정되지 않았습니다.');
+            console.warn('⚠️ Google Sheets ID 또는 API Key가 설정되지 않았습니다.', {
+                hasSpreadsheetId: !!spreadsheetId,
+                hasApiKey: !!apiKey
+            });
         }
+        
+        console.log(`📊 데이터 조회 완료: ${studentsData.length}개 항목 발견`);
 
         // 필터링 적용
         let filteredData = studentsData;
@@ -173,13 +227,17 @@ export default async (req, context) => {
             filteredData = filteredData.slice(-parseInt(limit)); // 최근 N개만
         }
 
+        const result = {
+            success: true,
+            students: filteredData,
+            count: filteredData.length,
+            total: studentsData.length
+        };
+        
+        console.log(`✅ 응답 반환: ${result.count}개 항목 (전체 ${result.total}개)`);
+        
         return new Response(
-            JSON.stringify({
-                success: true,
-                students: filteredData,
-                count: filteredData.length,
-                total: studentsData.length
-            }),
+            JSON.stringify(result),
             { status: 200, headers }
         );
 

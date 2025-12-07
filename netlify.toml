@@ -1,6 +1,7 @@
 [build]
-  command = "npm run build"
-  publish = "dist"
+  # 빌드 명령어 제거 (index.html이 루트에 있으므로 빌드 불필요)
+  # command = "npm run build"
+  publish = "."  # 루트 디렉토리 (index.html이 있는 곳)
   functions = "netlify/functions"
 
 [functions]

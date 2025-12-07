@@ -2,6 +2,8 @@
 // This function reads student data from Google Sheets API
 // Google Forms 응답을 Google Sheets에 연결해야 합니다.
 
+import fetch from 'node-fetch';
+
 export default async (req, context) => {
     // CORS 헤더 설정
     const headers = {

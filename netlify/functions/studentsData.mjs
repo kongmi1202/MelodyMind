@@ -94,14 +94,18 @@ export default async (req, context) => {
                     });
                 }
                 
-                // 시트명 목록이 없으면 기본값 사용
+                // 시트명 목록이 없으면 기본값 사용 (실제 시트명 우선)
                 if (sheetNames.length === 0) {
+                    console.warn('⚠️ 메타데이터에서 시트명을 가져오지 못했습니다. 기본 시트명 사용');
                     sheetNames = [
-                        '설문지 응답 시트1',
+                        '설문지 응답 시트1',  // 실제 시트명 (우선순위 1)
                         '시트1',
                         'Form Responses 1',
-                        'Sheet1'
+                        'Sheet1',
+                        '응답',
+                        'Responses'
                     ];
+                    console.log('📋 사용할 기본 시트명 목록:', sheetNames);
                 }
                 
                 let data = null;
